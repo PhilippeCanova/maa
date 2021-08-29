@@ -1,0 +1,11 @@
+{% extends "webpro/base.html" %}
+{% block head %}
+<title>Aeroweb Pro</title>
+{% endblock %}
+{% block body %}
+<ul>
+    <li><a href="{% url 'logout' %}?next=/web/pro/">Déconnexion</a></li>
+    <li><a href="{% url 'indexvfr' %}">Site VFR</a></li>
+</ul>
+
+{% endblock %}

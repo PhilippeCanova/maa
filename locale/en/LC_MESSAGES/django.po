@@ -1,0 +1,100 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2021-08-09 19:27+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: myproject/apps/magazine/app_settings.py:10 myproject/settings/_base.py:175
+msgid "Futurism"
+msgstr ""
+
+#: myproject/apps/magazine/app_settings.py:11 myproject/settings/_base.py:176
+msgid "Nostalgia"
+msgstr ""
+
+#: myproject/apps/magazine/app_settings.py:12 myproject/settings/_base.py:177
+msgid "Sustainability"
+msgstr ""
+
+#: myproject/apps/magazine/app_settings.py:13 myproject/settings/_base.py:178
+msgid "Wonder"
+msgstr ""
+
+#: myproject/apps/magazine/apps.py:7
+msgid "Magazine"
+msgstr ""
+
+#: myproject/apps/magazine/models.py:8
+msgid "Created at"
+msgstr ""
+
+#: myproject/apps/magazine/models.py:10
+msgid "Title"
+msgstr ""
+
+#: myproject/apps/magazine/models.py:11
+msgid "Body"
+msgstr ""
+
+#: myproject/apps/magazine/models.py:12
+msgid "Theme"
+msgstr ""
+
+#: myproject/apps/magazine/models.py:15
+msgid "News Article"
+msgstr ""
+
+#: myproject/apps/magazine/models.py:16
+msgid "News Articles"
+msgstr ""
+
+#. Translators: Déconnexion de la page d'accueil
+#: myproject/apps/webvfr/templates/webvfr/index.html:14
+msgid "Déconnexion"
+msgstr ""
+
+#: myproject/apps/webvfr/templates/webvfr/index.html:16
+msgid "Modifier son profil"
+msgstr "Modify your profile"
+
+#: myproject/apps/webvfr/views.py:27 myproject/apps/webvfr/views.py:52
+msgid "Your profile was successfully updated!"
+msgstr ""
+
+#: myproject/apps/webvfr/views.py:30
+msgid "Please correct the error below."
+msgstr ""
+
+#: myproject/settings/_base.py:144
+msgid "English"
+msgstr ""
+
+#: myproject/settings/_base.py:145
+msgid "French"
+msgstr ""
+
+#: myproject/settings/_base.py:179
+msgid "Positivity"
+msgstr ""
+
+#: myproject/settings/_base.py:180
+msgid "Solutions"
+msgstr ""
+
+#: myproject/settings/_base.py:181
+msgid "Science"
+msgstr ""
