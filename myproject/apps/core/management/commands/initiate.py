@@ -3,7 +3,7 @@ import datetime
 
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
-from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA
+from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA, Client, MediumMail
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 
@@ -225,7 +225,6 @@ class Command(BaseCommand):
             if not user.is_superuser:
                 user.delete()
             else:
-                print ('Ne touche pas à {}'.format(user.username) )
                 user.groups.add(administrateur)
                 user.groups.add(configurateur)
                 user.groups.add(superadmin)
@@ -281,8 +280,11 @@ class Command(BaseCommand):
             date_debut = datetime.datetime.utcnow().replace(minute =0).replace(second=0) + datetime.timedelta (hours= 3),
             date_fin = datetime.datetime.utcnow().replace(minute =0).replace(second=0) + datetime.timedelta (hours= 8),
             numero = 1,
+            fcst=True,
+            status = 'to_send',
             message = """LFBT AD WRNG 1 VALID 201356/201500
 TS OBS.
+NO WARNING BEETWIN 00TU AND 04TU
 =""",
             context_TAF = """LFPG,20180721230000,NSW,10000,10000,5,5,,18.2,,,0.0,0.0,0.1,0.4,0.6,0,0,0,20180720170000,0.0,300,0
 LFPG,20180722000000,NSW,10000,10000,5,5,,17.4,,,0.0,0.0,0.0,0.3,0.6,0,0,0,20180720170000,0.0,300,0
@@ -301,3 +303,24 @@ LFPG,20180722180000,NSW,,,6,6,,26.5,,,0.0,0.0,0.0,0.0,0.0,0,0,0,,0.0,35,""",
         with open(base_dir.joinpath('MAAx.pdf'), 'rb') as f:
             envoi.message_pdf.save("MAA_LFPG_TS_1_20210824052410_1.pdf", File(f))
         print(envoi.message_pdf.path)
+
+        clients = Client.objects.all()
+        for client in clients:
+            client.delete()
+        mails = MediumMail.objects.all()
+        for mail in mails:
+            mail.delete()
+        
+        client = Client(
+            nom = "Canova",
+            prenom = "Philipp",
+            telephone = "00000000",
+            email = "philippe.canova@meteo.fr",
+        )
+        client.save()
+        client.configmaas.add(conf_maa)
+
+        dest_mail = MediumMail.objects.create(
+            client = client,
+            email = "ph.cano@free.fr"
+        )

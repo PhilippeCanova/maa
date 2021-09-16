@@ -30,4 +30,5 @@ urlpatterns = [
     path('income/', include('myproject.apps.income.urls'), name='income'),
     path('admin/', admin.site.urls),
     path('', include('myproject.apps.site.urls'), name='accueil'),
+    
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
