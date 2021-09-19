@@ -4,7 +4,11 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
 
-
+TYPES_LOG = [
+    ('error','Erreur'),
+    ('warning','Avertissement'),
+    ('info','Information'),
+]
 class AutorisedMAA(object):
     def __init__(self, type, nom, **options):
         self.type = type
@@ -74,7 +78,16 @@ class Region(models.Model):
     def __str__(self):
         return self.tag
 
+class Log(models.Model):
+    """ Stoque les logs que l'on veut faire remonter """
+    heure = models.DateTimeField(auto_now=True)
+    type = models.CharField(max_length=10, null=False, choices= TYPES_LOG)
+    machine = models.CharField(max_length=20, null=False) # Indique le nom de la machine ayant lancé le log
+    code = models.CharField(max_length = 8)
+    message = models.TextField(null=False)
 
+    def __str__(self):
+        return "{}-{}-{}-{}-{}".format(self.heure, self.type, self.machine, self.code, self.message)
 
 class Station(models.Model):
     """ Aéroport"""
@@ -83,6 +96,8 @@ class Station(models.Model):
     entete = models.CharField(max_length=11, null=False, verbose_name="Entete")
     region = models.ForeignKey(Region, on_delete=models.CASCADE, null=False, blank=False, verbose_name="Dir")
     active = models.BooleanField(default = False)
+    inseepp = models.CharField(max_length=7, null=False, verbose_name="INSEEpp")
+    outremer = models.BooleanField(default= False, null=False)
     date_pivot = models.DateTimeField(null=False, verbose_name="Date changement d'heure")
     ouverture = models.TimeField(null=False, verbose_name="H ouverture")
     ouverture1 = models.TimeField(null=False, verbose_name="H ouverture avant pivot")

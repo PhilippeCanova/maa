@@ -1,11 +1,13 @@
 from pathlib import Path
 import datetime
+import sys
 
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
-from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA, Client, MediumMail
+from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA, Client, MediumMail, Log
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
 
 class ConfigStation(object):
         def __init__(self, entetes, ligne) -> None:
@@ -85,10 +87,11 @@ class ConfMAA(object):
 class Command(BaseCommand):
     help = 'Initialise un environnement après supression de la base de données'
 
-    """def add_arguments(self, parser):
-        parser.add_argument('poll_ids', nargs='+', type=int)
+    def add_arguments(self, parser):
+        parser.add_argument('--onlydelete', action="store_true", help="Permet de demander l'effacement des champs déjà en base (hors superuser)")
+        #parser.add_argument('--create', action="store_true", help="Permet de demander la création des champs en base (hors superuser)")
 
-    def handle(self, *args, **options):
+    """def handle(self, *args, **options):
         for poll_id in options['poll_ids']:
             try:
                 poll = Poll.objects.get(pk=poll_id)
@@ -101,10 +104,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('Successfully closed poll "%s"' % poll_id))
             """
     
-            
-
-    def handle(self, *args, **options):
-        
+    def delete(self):
         # Suppression des régions existantes
         regions = Region.objects.all()
         for region in regions:
@@ -114,15 +114,59 @@ class Command(BaseCommand):
         stations = Station.objects.all()
         for station in stations:
             station.delete()
-            """region = Region.objects.create(tag="DIRSE")
-            self.stdout.write(self.style.SUCCESS('Create region DIRSE'))
-            """
+
+        # Création des groupes et permission
+        groups = Group.objects.all()
+        for group in groups:
+            group.delete()
+        
+        # Charge les configs MAA depuis le fichier de confgi
+        configsMAA = ConfigMAA.objects.all()
+        for conf in configsMAA:
+            conf.delete()
+
+        # implémente quelques envois de MAA
+        envois = EnvoiMAA.objects.all()
+        for envoi in envois:
+            envoi.delete()
+
+        clients = Client.objects.all()
+        for client in clients:
+            client.delete()
+
+        mails = MediumMail.objects.all()
+        for mail in mails:
+            mail.delete()
+
+        # Création des profils
+        users = User.objects.all()
+        for user in users:
+            if not user.is_superuser:
+                user.delete()
+
+
+
+    def handle(self, *args, **options):
+        
+        print (options)
+
+        self.delete()
+        if options['onlydelete']:
+            sys.exit()
 
         # Lecture des configs station
         base_dir = Path(__file__).parent
         fichier_conf_station = base_dir.joinpath('config_station.csv')
         configs = ConfigsStation(fichier_conf_station)
-        
+
+        # Lecture des correspondances OACI - insee
+        fichier_correspondance = base_dir.joinpath('correspondanceMAA.csv')
+        correspondance = {}
+        with open(fichier_correspondance, 'r') as ficin:
+            for ligne in ficin.readlines():
+                infos = ligne.split(';')
+                correspondance[infos[1].strip()] = infos[0]
+
         # Création des régions
         dirs = configs.get_dirs()
         dirs_objects = {}
@@ -131,13 +175,18 @@ class Command(BaseCommand):
 
         # Création des stations
         for oaci, config in configs.stations.items():
-            print (config.nom, config.station)
-
-            Station.objects.create( oaci= oaci,
+            if oaci in correspondance.keys():
+                inseepp = correspondance[oaci]
+                outremer = False
+                if inseepp[:2] > '95':
+                    outremer = True
+                Station.objects.create( oaci= oaci,
                                     nom = config.nom,
                                     entete = config.entete,
                                     date_pivot = config.date_pivot,
                                     region = dirs_objects[config.dir],
+                                    inseepp = inseepp,
+                                    outremer = outremer,
                                     active = True,
                                     ouverture = config.ouverture, ouverture1 = config.ouverture1, ouverture2 = config.ouverture2, 
                                     fermeture = config.fermeture, fermeture1 = config.fermeture1, fermeture2 = config.fermeture2, 
@@ -148,13 +197,10 @@ class Command(BaseCommand):
                                     temp_unit = config.unite_tempe,
                                     fuseau = config.fuseau,
                                     )
+            else:
+                print ("Station sans correspondance OACI-inseepp", oaci)
 
-        # Création des groupes et permission
-        groups = Group.objects.all()
-        for group in groups:
-            group.delete()
-            
-
+        
         configurateur, create = Group.objects.get_or_create(name="Configurateur")
         administrateur, create = Group.objects.get_or_create(name="Administrateur")
         superadmin, create = Group.objects.get_or_create(name="Super admin")
@@ -222,9 +268,7 @@ class Command(BaseCommand):
         # Création des profils
         users = User.objects.all()
         for user in users:
-            if not user.is_superuser:
-                user.delete()
-            else:
+            if user.is_superuser:
                 user.groups.add(administrateur)
                 user.groups.add(configurateur)
                 user.groups.add(superadmin)
@@ -241,37 +285,23 @@ class Command(BaseCommand):
         user.profile.region = Region.objects.get(tag = "DIRN")
         user.groups.add(configurateur)
         user.save()
-
-        #Profile.objects.create(user = user)
-        
-        # Charge les configs MAA depuis le fichier de confgi
-        configsMAA = ConfigMAA.objects.all()
-        for conf in configsMAA:
-            conf.delete()
         
         fichier = base_dir.joinpath('table config_maa.csv')
         configs = ConfMAA.loadConfigs(fichier, configs.stations)
 
         t = []
         for conf in configs:
-            station = Station.objects.get(oaci=conf.station)
-            ConfigMAA.objects.create(
-                station = station,
-                type_maa = conf.type_maa,
-                auto = conf.auto,
-                seuil = conf.seuil,
-                pause = conf.pause,
-                scan = conf.scan,
-                profondeur = conf.profondeur
-            )
-            t.append(conf.type_maa)
-        
-        #print(set(t))
-
-        # implémente quelques envois de MAA
-        envois = EnvoiMAA.objects.all()
-        for envoi in envois:
-            envoi.delete()
+                station = Station.objects.get(oaci=conf.station)
+                ConfigMAA.objects.create(
+                    station = station,
+                    type_maa = conf.type_maa,
+                    auto = conf.auto,
+                    seuil = conf.seuil,
+                    pause = conf.pause,
+                    scan = conf.scan,
+                    profondeur = conf.profondeur
+                )
+                t.append(conf.type_maa)
         
         conf_maa = ConfigMAA.objects.get(station__oaci = 'LFPG', type_maa= 'TS')
         envoi = EnvoiMAA.objects.create(
@@ -302,14 +332,6 @@ LFPG,20180722180000,NSW,,,6,6,,26.5,,,0.0,0.0,0.0,0.0,0.0,0,0,0,,0.0,35,""",
         )
         with open(base_dir.joinpath('MAAx.pdf'), 'rb') as f:
             envoi.message_pdf.save("MAA_LFPG_TS_1_20210824052410_1.pdf", File(f))
-        print(envoi.message_pdf.path)
-
-        clients = Client.objects.all()
-        for client in clients:
-            client.delete()
-        mails = MediumMail.objects.all()
-        for mail in mails:
-            mail.delete()
         
         client = Client(
             nom = "Canova",
@@ -324,3 +346,12 @@ LFPG,20180722180000,NSW,,,6,6,,26.5,,,0.0,0.0,0.0,0.0,0.0,0,0,0,,0.0,35,""",
             client = client,
             email = "ph.cano@free.fr"
         )
+
+        # Crée un log :
+        log = Log(
+            type = 'error',
+            machine = settings.MACHINE,
+            code = '000',
+            message = 'Initiate'
+        )
+        log.save()

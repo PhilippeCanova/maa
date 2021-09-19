@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.admin.models import LogEntry
 
 from myproject.apps.core.models import EnvoiMAA, Profile, Region, Station, ConfigMAA
-from myproject.apps.core.models import Client, MediumFTP, MediumMail, MediumSMS
+from myproject.apps.core.models import Client, MediumFTP, MediumMail, MediumSMS, Log
 
 
 class ConfMAAInline(admin.TabularInline):
@@ -23,12 +23,12 @@ class MediumFTPInline(admin.TabularInline):
 
 class StationAdmin(admin.ModelAdmin):
     fieldsets = [
-        ('Paramètres généraux',               {'fields': ['active', 'oaci', 'nom', 'entete', 'region', 'wind_unit', 'temp_unit']}),
+        ('Paramètres généraux',               {'fields': ['active', 'oaci', 'nom', 'inseepp', 'entete', 'region', 'outremer', 'wind_unit', 'temp_unit']}),
         ('Paramètres MAA',               {'fields': [ 'retention', 'reconduction', 'repousse']}),
         ('Gestion des heures', {'fields': ['date_pivot', 'ouverture', 'ouverture1', 'ouverture2', 'fermeture', 'fermeture1', 'fermeture2', 'fuseau']}),
     ]
     inlines = [ConfMAAInline]
-    list_display = ('oaci', 'nom', 'region', 'entete', 'active')
+    list_display = ('oaci', 'nom', 'inseepp', 'region', 'entete', 'active')
     search_fields = ['oaci', 'nom', 'region__tag']
 
     def get_queryset(self, request):
@@ -66,10 +66,15 @@ class EnvoiMAAAdmin(admin.ModelAdmin):
 class ConfigMAAAdmin(admin.ModelAdmin):
     list_display = ('station', 'type_maa', 'seuil', 'auto', 'pause', 'scan', 'profondeur')
 
+class LogAdmin(admin.ModelAdmin):
+    list_display = ('heure', 'machine', 'type', 'code', 'message')
+    search_fields = ['heure', 'machine', 'type']
+
 
 # Register your models here.
 admin.site.register(Profile)
 admin.site.register(Region)
+admin.site.register(Log, LogAdmin)
 admin.site.register(Station, StationAdmin)
 admin.site.register(ConfigMAA, ConfigMAAAdmin)
 admin.site.register(EnvoiMAA, EnvoiMAAAdmin)
