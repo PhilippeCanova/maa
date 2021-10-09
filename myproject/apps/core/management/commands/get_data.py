@@ -29,7 +29,12 @@ class Command(BaseCommand):
         print (cdpaero.define_url())
         data_aero = cdpaero.get_data_cdpaero(options['TC'], options['transpose_date'])
         
-        
-        LFPG = data_aero.get('LFPG')
+        LFPG = data_aero.get('LFRN')
         for ech in LFPG.get_echeances():
-            print (ech.id, ech.dvalid, ech.idoaci, ech.DateEmissionTAF, ech.ddtaf, ech.DDTAFTempo, ech.DDTAFProb40, ech.DDTAFProb40Tempo)
+            print (ech.id, ech.dvalid, ech.idoaci, ' TAF=>', ech.DateEmissionTAF, )
+            print('FF',ech.FFTAF, ech.FFTAFTempo, ech.FFTAFProb40, ech.FFTAFProb40Tempo)
+            print('FX',ech.FXTAF, ech.FXTAFTempo, ech.FXTAFProb40, ech.FXTAFProb40Tempo)
+            print('dd', ech.ddtaf,ech.DDTAFTempo,ech.DDTAFProb40,ech.DDTAFProb40Tempo)
+            print ('ww', ech.wwTAF,ech.wwTAFTempo,ech.wwTAFProb40,ech.wwTAFProb40Tempo)
+            print('Visi', ech.visi,ech.VisibiliteTempo,ech.visiprob40,ech.VisibiliteProb40Tempo)
+            

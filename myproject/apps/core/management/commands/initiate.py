@@ -84,26 +84,8 @@ class ConfMAA(object):
         return reponse
 
 
-class Command(BaseCommand):
-    help = 'Initialise un environnement après supression de la base de données'
+class Initiate(object):
 
-    def add_arguments(self, parser):
-        parser.add_argument('--onlydelete', action="store_true", help="Permet de demander l'effacement des champs déjà en base (hors superuser)")
-        #parser.add_argument('--create', action="store_true", help="Permet de demander la création des champs en base (hors superuser)")
-
-    """def handle(self, *args, **options):
-        for poll_id in options['poll_ids']:
-            try:
-                poll = Poll.objects.get(pk=poll_id)
-            except Poll.DoesNotExist:
-                raise CommandError('Poll "%s" does not exist' % poll_id)
-
-            poll.opened = False
-            poll.save()
-
-            self.stdout.write(self.style.SUCCESS('Successfully closed poll "%s"' % poll_id))
-            """
-    
     def delete(self):
         # Suppression des régions existantes
         regions = Region.objects.all()
@@ -144,16 +126,14 @@ class Command(BaseCommand):
             if not user.is_superuser:
                 user.delete()
 
+        content_ConfiMAA = ContentType.objects.get_for_model(ConfigMAA)
+        try:
+            expert = Permission.objects.get(codename = 'expert_configmaa', content_type=content_ConfiMAA)
+            expert.delete()
+        except:
+            pass
 
-
-    def handle(self, *args, **options):
-        
-        print (options)
-
-        self.delete()
-        if options['onlydelete']:
-            sys.exit()
-
+    def create(self):
         # Lecture des configs station
         base_dir = Path(__file__).parent
         fichier_conf_station = base_dir.joinpath('config_station.csv')
@@ -237,12 +217,17 @@ class Command(BaseCommand):
 
 
         # Droits sur les configMAA
-        content_Region = ContentType.objects.get_for_model(ConfigMAA)
+        content_ConfiMAA = ContentType.objects.get_for_model(ConfigMAA)
+        # => crée une autorisation de modifier les paramètres fins des config MAA
+        change_fin, nope = Permission.objects.get_or_create(codename = 'expert_configmaa', name="Can specify configMAA", content_type=content_ConfiMAA)
+        administrateur.permissions.add(change_fin)
+        superadmin.permissions.add(change_fin)
 
-        configurateur.permissions.add(Permission.objects.get(codename='view_configmaa', content_type=content_Region))
-        configurateur.permissions.add(Permission.objects.get(codename='change_configmaa', content_type=content_Region))
-        configurateur.permissions.add(Permission.objects.get(codename='add_configmaa', content_type=content_Region))
-        configurateur.permissions.add(Permission.objects.get(codename='delete_configmaa', content_type=content_Region))
+        configurateur.permissions.add(Permission.objects.get(codename='view_configmaa', content_type=content_ConfiMAA))
+        configurateur.permissions.add(Permission.objects.get(codename='change_configmaa', content_type=content_ConfiMAA))
+        configurateur.permissions.add(Permission.objects.get(codename='add_configmaa', content_type=content_ConfiMAA))
+        configurateur.permissions.add(Permission.objects.get(codename='delete_configmaa', content_type=content_ConfiMAA))
+
 
         # Droits sur les envoi MAA
         envoi_maa = ContentType.objects.get_for_model(EnvoiMAA)
@@ -272,6 +257,9 @@ class Command(BaseCommand):
                 user.groups.add(administrateur)
                 user.groups.add(configurateur)
                 user.groups.add(superadmin)
+        # Pour la création du superuser, on doit pouvoir passer par :
+        #from django.contrib.auth import get_user_model
+        #get_user_model().objects.create_superuser
 
         user = User.objects.create_user('administrateur', 'monique.le@meteo.fr', 'djangofr')
         user.is_staff = True
@@ -355,3 +343,38 @@ LFPG,20180722180000,NSW,,,6,6,,26.5,,,0.0,0.0,0.0,0.0,0.0,0,0,0,,0.0,35,""",
             message = 'Initiate'
         )
         log.save()
+
+class Command(BaseCommand):
+    help = 'Initialise un environnement après supression de la base de données'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--onlydelete', action="store_true", help="Permet de demander l'effacement des champs déjà en base (hors superuser)")
+        #parser.add_argument('--create', action="store_true", help="Permet de demander la création des champs en base (hors superuser)")
+
+    """def handle(self, *args, **options):
+        for poll_id in options['poll_ids']:
+            try:
+                poll = Poll.objects.get(pk=poll_id)
+            except Poll.DoesNotExist:
+                raise CommandError('Poll "%s" does not exist' % poll_id)
+
+            poll.opened = False
+            poll.save()
+
+            self.stdout.write(self.style.SUCCESS('Successfully closed poll "%s"' % poll_id))
+            """
+    
+
+
+
+    def handle(self, *args, **options):
+        
+        print (options)
+
+        init = Initiate()
+        init.delete()
+
+        if options['onlydelete']:
+            sys.exit()
+
+        init.create()

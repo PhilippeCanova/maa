@@ -71,6 +71,10 @@ class AutorisedMAAs(object):
     def is_occurrence(type_maa)-> bool:
         return AutorisedMAAs.autorised[type_maa].occurrence == True
 
+    @staticmethod
+    def is_automatisable(type_maa)-> bool:
+        return AutorisedMAAs.autorised[type_maa].automatisable == True
+
 class Region(models.Model):
     """ Région météo regroupant les aéroport"""
     tag = models.TextField(max_length=10, null=False, unique=True, verbose_name="Tag région")
@@ -88,7 +92,6 @@ class Log(models.Model):
 
     def __str__(self):
         return "{}-{}-{}-{}-{}".format(self.heure, self.type, self.machine, self.code, self.message)
-
 class Station(models.Model):
     """ Aéroport"""
     oaci = models.CharField(max_length=4, null=False, unique=True, verbose_name="Code OACI")
@@ -114,8 +117,6 @@ class Station(models.Model):
 
     def __str__(self):
         return "{}- {} ({})".format(self.oaci, self.nom, self.region)
-
-
 class ConfigMAA(models.Model):
     """ Liste les MAA autorisés pour une station"""
     station = models.ForeignKey(Station, on_delete=models.CASCADE, null=False)
@@ -137,6 +138,8 @@ class ConfigMAA(models.Model):
     
     class Meta:
         ordering = ["station", "type_maa", "seuil"]
+    
+        
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name='profile')
@@ -208,10 +211,10 @@ class MediumFTP(models.Model):
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
-        print('create_user')
+        #print('create_user')
         Profile.objects.create(user=instance)
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    print('save_user')
+    #print('save_user')
     instance.profile.save()

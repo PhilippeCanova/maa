@@ -32,7 +32,7 @@ class DataStation(object):
 
 class DataEcheance(object):
     PARAMETRES = [
-            'id','dprod','dvalid','idoaci','DateEmissionTAF','visi','visiprob40','VisibiliteTempo','VisibiliteProb40Tempo',
+            'id','typeprev','dvalid','idoaci','DateEmissionTAF','visi','visiprob40','VisibiliteTempo','VisibiliteProb40Tempo',
             'ddtaf','DDTAFTempo','DDTAFProb40','DDTAFProb40Tempo',
             'FFTAF','FFTAFTempo','FFTAFProb40','FFTAFProb40Tempo','FXTAF','FXTAFTempo','FXTAFProb40','FXTAFProb40Tempo',
             'wwTAF','wwTAFTempo','wwTAFProb40','wwTAFProb40Tempo'
@@ -50,7 +50,7 @@ class DataEcheance(object):
         if mustTranspose:
             delta = mustTranspose - dateRef
 
-        dates = ['dprod', 'dvalid']
+        dates = [ 'dvalid']
         for date in dates:
             dt = self.__dict__.get(date, None)
             if dt:
@@ -66,10 +66,13 @@ class CDPAero(object):
         self.parametres = DataEcheance.PARAMETRES
         self.repertoire_TC = settings.BASE_DIR.joinpath('myproject').joinpath('apps').joinpath('core').joinpath('tests')
         self.data_stations = {}
+        self.transpose_date = None # Quand un jeu de données est utilisé. Permet de décaler les dates
+        self.transpose = None # Quand un jeu de données est utilisé. Permet de connaître la date de référence
 
     def define_url(self):
         """ Définit l'url de la requête """
         parametres = {}
+
         parametres['dpivot'] = self.profondeur
         parametres['format'] = self.format
         parametres['param'] = ','.join(self.parametres)
@@ -88,19 +91,22 @@ class CDPAero(object):
         url = self.define_url()
         print(url)
 
-        http = urllib3.PoolManager()
+        http = urllib3.ProxyManager("http://proxy.meteo.fr:11011")
         try: 
             r = http.request('GET', url, timeout=10.0)
-            if r.status != '200':
+            if r.status != 200:
                 print ("Erreur")
             else:
-                data = json.loads(r.data.decode('utf-8'))
-                print (r.data)
-                print (data)
+                lignes = r.data.split(b'\n')
+                for ligne in lignes[1:]: # Evince la première ligne qui est le nombre de lignes de la réponse
+                    ligne = str(ligne).strip()
+                    if ligne != str(b''):
+                        self.add_data_line(ligne) 
 
         except urllib3.exceptions.RequestError as E:
             print (E)
-        return None
+
+        return self.data_stations
 
     def get_TC_data_cdpaero(self, TC, transpose_date=None):
         """ Récupère les données de toutes les stations sur le cdp aero stocké en local (données TAF des TC) 
@@ -121,8 +127,8 @@ class CDPAero(object):
             self.transpose = datetime.datetime.strptime(transpose.strip(), "%Y-%m-%d %H:%M:%S")
             nb_ligne = ficin.readline()
             for ligne in ficin.readlines():
-                ligne = ligne.strip()
-                if ligne:
+                ligne = str(ligne).strip()
+                if ligne != str(b''):
                     self.add_data_line(ligne)
 
         return self.data_stations
@@ -132,7 +138,7 @@ class CDPAero(object):
         data = DataEcheance(ligne, self.transpose_date, self.transpose)
         
         dvalid = data.dvalid
-        if dvalid.minute ==0:
+        if dvalid.minute ==0 and data.typeprev=='0' and data.DateEmissionTAF != '':
             data_station = self.data_stations.get(data.idoaci, DataStation(data.idoaci))
             data_station.add_echeance(data.dvalid, data)
             self.data_stations[data.idoaci] = data_station
