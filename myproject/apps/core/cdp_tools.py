@@ -9,6 +9,7 @@ from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 
+
 class DataStation(object):
     def __init__(self, oaci):
         self.oaci = oaci
@@ -89,13 +90,13 @@ class CDPAero(object):
 
     def get_remote_data_cdpaero(self):
         url = self.define_url()
-        print(url)
 
         http = urllib3.ProxyManager("http://proxy.meteo.fr:11011")
         try: 
             r = http.request('GET', url, timeout=10.0)
+            
             if r.status != 200:
-                print ("Erreur")
+                print ("De requête du cdp aéro : {}\nCode retour : {}".format(url, r.status))
             else:
                 lignes = r.data.split(b'\n')
                 for ligne in lignes[1:]: # Evince la première ligne qui est le nombre de lignes de la réponse
@@ -139,6 +140,11 @@ class CDPAero(object):
         
         dvalid = data.dvalid
         if dvalid.minute ==0 and data.typeprev=='0' and data.DateEmissionTAF != '':
+            """ Avec la requête classique, il faut retirer,
+                - les lignes qui ne concernent pas une heure ronde,
+                - les lignes correspondant à des prévisions modèle
+                - les lignes qui n'ont pas de dates de TAF
+            """
             data_station = self.data_stations.get(data.idoaci, DataStation(data.idoaci))
             data_station.add_echeance(data.dvalid, data)
             self.data_stations[data.idoaci] = data_station

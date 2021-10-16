@@ -1,10 +1,13 @@
+from unittest.mock import patch
+from selenium import webdriver # Pour utiliser Selenium
+import urllib3
+
 from django.test import TestCase
 from django.test import LiveServerTestCase, RequestFactory
 from django.urls import resolve
 from django.contrib.auth.models import AnonymousUser, User
 
-from selenium import webdriver # Pour utiliser Selenium
-
+from myproject.apps.core.cdp_tools import CDPAero
 from myproject.apps.site.views import WebVFRView
 
 # Create your tests here.
@@ -37,7 +40,31 @@ class ConnexionTestCase(LiveServerTestCase):
         response = WebVFRView(request)
         self.assertEqual(response.status_code, 200, "L'url racine / devrait accepter les requêtes de personnes identifiées.")
 
-    
+    @patch("urllib3.ProxyManager.request")
+    def test_recuperation_cdpaero(self, mock_request):
+        mock_request.return_value.status = 200
+        mock_request.return_value.data = b"""5
+9552761;1;2021-09-22 12:00:00;LFPG;2021-09-22 10:00:00;9999;;;;;;;;;;;;;;;;;;;;
+9552761;1;2021-09-23 12:00:00;LFPG;2021-09-22 10:00:00;9999;;;;;;;;;;;;;;;;;;;;
+9552761;0;2021-09-24 06:00:00;LFPG;;;;;;;;;;;;;;;;;;;;;;
+9552761;0;2021-09-22 09:00:00;LFPG;2021-09-22 05:00:00;9999;;;;40;;;;6;;;;;;;;;;;;
+9552761;0;2021-09-22 15:00:00;LFPG;2021-09-22 05:00:00;9999;;;;40;;;;6;;;;;;;;;;;;
+"""
+        cdp = CDPAero()
+        data_aero = cdp.get_remote_data_cdpaero()
+
+
+
+    """urllib3.ProxyManager("http://proxy.meteo.fr:11011")
+        try: 
+            r = http.request('GET', url, timeout=10.0)
+            if r.status != 200:
+                print ("Erreur")
+            else:
+                lignes = r.data"""
+
+
+
     """ Test sur une urll :
         solo_detail = resolve('/solos/1/')
         self.assertEqual(

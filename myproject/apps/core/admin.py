@@ -3,6 +3,9 @@ from django.conf.urls import url
 from django import forms
 from django.contrib.admin.models import LogEntry
 from django.conf import settings
+from django.contrib import messages
+from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
 
 from myproject.apps.core.models import EnvoiMAA, Profile, Region, Station, ConfigMAA
 from myproject.apps.core.models import Client, MediumFTP, MediumMail, MediumSMS, Log, AutorisedMAAs
@@ -38,7 +41,7 @@ class StationAdmin(admin.ModelAdmin):
         ('Paramètres MAA',               {'fields': [ 'retention', 'reconduction', 'repousse']}),
         ('Gestion des heures', {'fields': ['date_pivot', 'ouverture', 'ouverture1', 'ouverture2', 'fermeture', 'fermeture1', 'fermeture2', 'fuseau']}),
     ]
-    #inlines = [ConfMAAInline]   # Finalement, n'apporte pas grand chose et complique la donne
+    # inlines = [ConfMAAInline]   # Finalement, n'apporte pas grand chose et complique la donne
     list_display = ('oaci', 'nom', 'inseepp', 'region', 'entete', 'active')
     search_fields = ['oaci', 'nom', 'region__tag']
 
@@ -111,22 +114,58 @@ class ConfigMAAAdmin(admin.ModelAdmin):
 
         # Fait en sorte d'avoir l'unité inscrit dans le label
         # TODO : récupérer la vraie unité
+        unite = 'kt'
+        if obj:
+            unite = obj.station.wind_unit
+
         choices = form.base_fields['type_maa'].choices
         new_choices = []
         for t, l in choices:
             if 'VENT' in t:
-                l = l + " (kt)"
+                l = l + " ({})".format(unite)
             new_choices.append( (t, l) )
         form.base_fields['type_maa'].choices = new_choices
 
-        if not request.user.has_perm('myproject.apps.core.expert_configmaa'):
+        """if not request.user.has_perm('myproject.apps.core.expert_configmaa'):
             for name in self.READONLY_FOR_POP:
-                form.base_fields[name].widget.attrs['readonly'] = True
+                form.base_fields[name].widget.attrs['readonly'] = True"""
         return form
+    
+    def get_readonly_fields(self, request, obj=None):
+        if not request.user.has_perm('myproject.apps.core.expert_configmaa'):
+            return self.READONLY_FOR_POP
+        else:
+            return []
+
+    def response_add(self, request, obj, post_url_continue=None):
+        if self.je_refuse_le_save :
+            self.je_refuse_le_save = False
+            return redirect(request.get_full_path())
+        else:
+            return redirect('/admin/core/configmaa/')
+
+    def response_change(self, request, obj):
+        if self.je_refuse_le_save :
+            self.je_refuse_le_save = False
+            return redirect(request.get_full_path())
+        else:
+            return redirect('/admin/core/configmaa/')
 
     def save_model(self, request, obj, form, change):
         #obj.user = request.user
         data = form.cleaned_data
+        self.je_refuse_le_save = False
+
+        # Vérifie s'il n'y a pas déjà un combo identique configuré
+        try:
+            conf = ConfigMAA.objects.get(type_maa=data['type_maa'], seuil=data['seuil'], station=data['station'])
+            if conf and (conf.id != obj.id):
+                messages.set_level(request, messages.ERROR)
+                messages.error(request, "L'élément que vous essayez de créer existe déjà.")
+                self.je_refuse_le_save = True
+                return
+        except:
+            pass
 
         # Force le mode manuel pour les MAA qui ne supporte par l'automatisation
         if not AutorisedMAAs.is_automatisable(data['type_maa']):
@@ -153,7 +192,8 @@ class CustomAdminSite(admin.AdminSite):
         custom_urls = [
             url(r'desired/path$',self.admin_view(organization_admin.preview), name="preview"), 
         ]
-        return urls + custom_urls
+        return urls + custom_urls            print(request)
+            print(request.get_full_path())
     
 custom_admin_site = CustomAdminSite()
 custom_admin_site.register(ConfigMAA, ConfigMAAAdmin)"""
