@@ -41,6 +41,11 @@ SECRET_KEY = get_secret('DJANGO_SECRET_KEY')
 #'django-insecure-ugvxxupr(m51@!1_l%76-&ycc)v87_3pc)ixqf!z%69j47t-6%'
 MACHINE = get_secret('MACHINE')
 REMOTE_CDPAERO = 'http://nihoa-v27b.meteo.fr/cdp1/aerop?'
+REMOTE_CDPH = 'http://nihoa-v27b.meteo.fr/cdp1/h_p?'
+REMOTE_CDPH_OM = 'http://nihoa-v27b.meteo.fr/cdp1/om_h?'
+REMOTE_CDPQ = 'http://nihoa-v27b.meteo.fr/cdp1/q_p?'
+REMOTE_CDPQ_OM = 'http://nihoa-v27b.meteo.fr/cdp1/om_q?'
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -54,15 +59,23 @@ INSTALLED_APPS = [
     'myproject.apps.income.apps.IncomeConfig',
     'myproject.apps.core.apps.CoreConfig',
     'myproject.apps.site.apps.SiteConfig',
+    'donneur',
+    'analyseur',
+    'configurateur',
+    'profiles.apps.ProfilesConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'django_extensions',
+    #'corsheaders',
 ]
 
 MIDDLEWARE = [
+    #'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -72,6 +85,16 @@ MIDDLEWARE = [
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ]
+}
+CORS_ORIGIN_WHITELIST = ( 
+    'http://localhost:3000',
+)
+
 
 ROOT_URLCONF = 'myproject.urls'
 
@@ -185,4 +208,3 @@ MAGAZINE_ARTICLE_THEME_CHOICES = [
 
 LOGIN_URL = '/accounts/login/'
 #LOGOUT_REDIRECT_URL='/web/accounts/login/'
-

@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.models import User
 
-from myproject.apps.core.models import Profile 
+from profiles.models import Profile 
 
 class UserForm(UserCreationForm):
     class Meta:

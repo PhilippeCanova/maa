@@ -4,10 +4,12 @@ import datetime
 
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
-from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA
+from myproject.apps.core.models import Region, Station, ConfigMAA, EnvoiMAA
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.http import FileResponse
+
+from profiles.models import Profile
 
 class Command(BaseCommand):
     help = 'Crée un MAA à partir dùn EnvoiMAA'

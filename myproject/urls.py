@@ -20,6 +20,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from myproject.apps.site.views import update_profile, create_profile
+from myproject.apps.core.views import ListRegions, ListStations, DetailStation, DetailStationOACI, ConfigMAAStation
+from myproject.apps.core.views import ListConfigMAA
+#from rest_framework.documentation import include_docs_urls
 
 urlpatterns = [
     path('accounts/login/', auth_views.LoginView.as_view(template_name='core/registration/login.html'), name='login'),
@@ -28,7 +31,18 @@ urlpatterns = [
     path('accounts/create/', create_profile, name='accountscreate'),
 
     path('income/', include('myproject.apps.income.urls'), name='income'),
-    path('admin/', admin.site.urls),
+    path('adminMAA/', admin.site.urls),
     path('', include('myproject.apps.site.urls'), name='accueil'),
+
+    path('api/regions/', ListRegions.as_view(), name='liste_regions'),
+    path('api/stations/', ListStations.as_view(), name='liste_stations'),
+    path('api/station/<str:oaci>/config_maa/', ConfigMAAStation.as_view(), name='config_maastation'),
+    path('api/station/<int:pk>/', DetailStation.as_view(), name='detail_station_id'),
+    path('api/station/<str:oaci>/', DetailStationOACI.as_view(), name='detail_station_oaci'),
+    path('api/configs_maa/', ListConfigMAA.as_view(), name='liste_config_maa'),
+    #path('api/docs/', include_docs_urls(title='Mes API DRF')),
+    
+    #    url(r'^about/$', TemplateView.as_view(template_name="python/about.html"), name='about'),
+    # Permet de lancer une vue avec peu de valeur ajoutée
     
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

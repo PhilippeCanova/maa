@@ -21,7 +21,6 @@ def get_git_changeset_timestamp(absolute_path):
     changeset_timestamp = timestamp.strftime('%Y%m%d%H%M%S')
     return changeset_timestamp
 
-
 def get_static_version(absolute_path):
     """" Permet de forcer le rechargement des fichiers statics
     lors de la modification du fichier myproject/settings/last-update.txt

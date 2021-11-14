@@ -10,7 +10,8 @@ from reportlab.lib.units import inch, cm, mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.lib.colors import red, yellow, green
 
-from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA
+from myproject.apps.core.models import Region, Station, ConfigMAA, EnvoiMAA
+from profiles.models import Profile
 
 class MaaPDF(object):
     jours = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']

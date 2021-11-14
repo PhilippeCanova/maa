@@ -2,9 +2,49 @@ import datetime
 
 from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseBadRequest
-from myproject.apps.core.models import ConfigMAA, EnvoiMAA
+from configurateur.models import ConfigMAA, Station
+from analyseur.models import EnvoiMAA
+from django.http import HttpResponse
+from django.views import View
+from django.views.generic import TemplateView, RedirectView
+from django.shortcuts import get_object_or_404
+
+from django.utils import timezone
+from django.views.generic.detail import DetailView
 
 
+class StationDetailView(DetailView):
+    model = Station
+    template_name = 'income/station_detail.html'
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        context = self.get_context_data(object=self.object)
+        print(context)
+        return super().get(request, args, kwargs)
+
+class MyView(TemplateView):
+    template_name = "income/test_greeting.html"
+    # rappel, c'est la méthode get qui est déclenchée
+    def get_context_data(self, **kwargs):
+        """ Utilise pour passer des informations supplémentaires au template"""
+        context = super().get_context_data(**kwargs)
+        context['add_greeting'] = "Salut toi"
+        context['addon'] = kwargs.get('addon', '')
+        return context
+
+class MyRedirectView(RedirectView):
+    permanent = False
+    query_string = True
+    pattern_name = 'test_simple'
+
+    def get_redirect_url(self, *args, **kwargs):
+        #print (kwargs.get('test', 'no'))
+        return super().get_redirect_url(*args, **kwargs)
+
+
+
+        
 # Create your views here.
 def SimpleView(request):
     

@@ -2,3 +2,6 @@
 coverage
 django-debug-toolbar
 selenium
+PyPDF3
+django-extensions
+pygraphviz

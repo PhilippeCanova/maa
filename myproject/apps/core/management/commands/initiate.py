@@ -4,7 +4,10 @@ import sys
 
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
-from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA, Client, MediumMail, Log
+from configurateur.models import Region, Station, ConfigMAA, Client, MediumMail
+from myproject.apps.core.models import Log
+from analyseur.models import EnvoiMAA
+from profiles.models import Profile
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
@@ -30,14 +33,14 @@ class ConfigsStation(object):
                     config = ConfigStation(entetes, ligne)
                     config.date_pivot = datetime.datetime.strptime(config.date_pivot, "%Y-%m-%d %H:%M:%S")
                     config.ouverture = datetime.datetime.strptime(config.ouverture, "%H:%M")
-                    config.ouverture1 = datetime.datetime.strptime(config.ouverture1, "%H:%M")
-                    config.ouverture2 = datetime.datetime.strptime(config.ouverture2, "%H:%M")
+                    config.ouverture_ete = datetime.datetime.strptime(config.ouverture1, "%H:%M")
+                    config.ouverture_hiver = datetime.datetime.strptime(config.ouverture2, "%H:%M")
                     if config.fermeture == '24:00': config.fermeture = '23:59'
                     if config.fermeture1 == '24:00': config.fermeture1 = '23:59'
                     if config.fermeture2 == '24:00': config.fermeture2 = '23:59'
                     config.fermeture = datetime.datetime.strptime(config.fermeture, "%H:%M")
-                    config.fermeture1 = datetime.datetime.strptime(config.fermeture1, "%H:%M")
-                    config.fermeture2 = datetime.datetime.strptime(config.fermeture2, "%H:%M")
+                    config.fermeture_ete = datetime.datetime.strptime(config.fermeture1, "%H:%M")
+                    config.fermeture_hiver = datetime.datetime.strptime(config.fermeture2, "%H:%M")
                     self.stations[config.station] = config
 
         def get_station(self, tag):
@@ -123,8 +126,8 @@ class Initiate(object):
         # Création des profils
         users = User.objects.all()
         for user in users:
-            if not user.is_superuser:
-                user.delete()
+            #if not user.is_superuser:
+            user.delete()
 
         content_ConfiMAA = ContentType.objects.get_for_model(ConfigMAA)
         try:
@@ -137,6 +140,7 @@ class Initiate(object):
         # Lecture des configs station
         base_dir = Path(__file__).parent
         fichier_conf_station = base_dir.joinpath('config_station.csv')
+
         configs = ConfigsStation(fichier_conf_station)
 
         # Lecture des correspondances OACI - insee
@@ -146,7 +150,7 @@ class Initiate(object):
             for ligne in ficin.readlines():
                 infos = ligne.split(';')
                 correspondance[infos[1].strip()] = infos[0]
-
+        
         # Création des régions
         dirs = configs.get_dirs()
         dirs_objects = {}
@@ -168,8 +172,8 @@ class Initiate(object):
                                     inseepp = inseepp,
                                     outremer = outremer,
                                     active = True,
-                                    ouverture = config.ouverture, ouverture1 = config.ouverture1, ouverture2 = config.ouverture2, 
-                                    fermeture = config.fermeture, fermeture1 = config.fermeture1, fermeture2 = config.fermeture2, 
+                                    ouverture = config.ouverture, ouverture_ete = config.ouverture_ete, ouverture_hiver = config.ouverture_hiver, 
+                                    fermeture = config.fermeture, fermeture_ete = config.fermeture_ete, fermeture_hiver = config.fermeture_hiver, 
                                     retention = config.retention,
                                     reconduction = config.reconduction,
                                     repousse = config.delta_debut_repousse,
@@ -260,6 +264,14 @@ class Initiate(object):
         # Pour la création du superuser, on doit pouvoir passer par :
         #from django.contrib.auth import get_user_model
         #get_user_model().objects.create_superuser
+        user = User.objects.create_superuser('philippe', 'philippe.canova@meteo.fr', 'fr')
+        user.is_staff = True
+        #user.profile.region = Region.objects.get(tag = "DIRN")
+        user.groups.add(superadmin)
+        user.groups.add(administrateur)
+        user.groups.add(configurateur)
+        user.save()
+
 
         user = User.objects.create_user('administrateur', 'monique.le@meteo.fr', 'djangofr')
         user.is_staff = True

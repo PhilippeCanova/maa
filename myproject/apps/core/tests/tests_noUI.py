@@ -1,3 +1,4 @@
+import datetime, time
 from unittest.mock import patch
 from selenium import webdriver # Pour utiliser Selenium
 import urllib3
@@ -10,7 +11,7 @@ from django.contrib.auth.models import AnonymousUser, User
 from myproject.apps.core.cdp_tools import CDPAero
 from myproject.apps.site.views import WebVFRView
 
-# Create your tests here.
+# Create your tests here.        
 class ConnexionTestCase(LiveServerTestCase):
     def setUp(self):
         """ executé avant toute fonction test_"""
