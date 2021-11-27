@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import models
 
 from myproject.models.mes_mixins import Activable
@@ -13,49 +15,191 @@ class AutorisedMAA(object):
         self.scan =  options.get('scan', 12)
         self.profondeur =  options.get('profondeur', 12)
         self.occurrence =  options.get('occurrence', True)
+        self.decription_genre_féminin =  options.get('decription_genre_féminin', True)
+        self.description_singulier =  options.get('description_singulier', True)
+        self.description_label =  options.get('description_label', self.type)
+        self.description_comparatif =  options.get('description_comparatif', '?')
+        self.description_unit =  options.get('description_unit', '')
+        self.force_unit  = options.get('force_unit', 'kt')
 
+
+    def get_description(self, fcst, seuil=None, at=None, force_unit=None):
+        """ Détermine la description en clair du message à insérer dans le MAA """
+        #TODO: il est possible que tous les *AT* ne soient plus utilisés. Les retirer si c'est confirmé. 
+        unite = self.description_unit
+        if force_unit is not None:
+            unite = force_unit
+
+        label = "De la " + self.description_label
+        if not self.decription_genre_féminin:
+            label = "Du " + self.description_label
+        if not self.description_singulier:
+            label = "Des " + self.description_label
+        if not self.occurrence:
+            label = "Une " + self.description_label
+            if not self.decription_genre_féminin:
+                label = "Un " + self.description_label
+            if not self.description_singulier:
+                label = "Des " + self.description_label
+                
+        accord = ''
+        if self.decription_genre_féminin: accord='e'
+
+        verbe_etre = 'est'
+        verbe_avoir = "a"
+        if not self.description_singulier:
+            verbe_etre = 'sont'
+            verbe_avoir = "ont"
+            accord = accord + "s"
+            
+        phrase = ""
+        if self.occurrence:
+            if fcst=="FCST":
+                phrase = "{} {} prévu{} durant la période de validité.".format(label, verbe_etre, accord)
+            elif fcst=="OBS":
+                phrase = "{} {} été observé{}.".format(label, verbe_avoir, accord)
+            elif fcst=="OBSAT":
+                phrase = "{} {} été observé{} à {}.".format(label, verbe_avoir, accord, datetime.strftime(at),"%H:%M")
+            elif fcst=="OBSATANDFCST":
+                phrase = "{} {} été observé{} à {}\net {} prévu{} durant la période de validité.".format(label, verbe_avoir, accord, datetime.strftime(at),"%H:%M", verbe_etre, accord)
+            elif fcst=="OBSANDFCST":
+                phrase = "{} {} été observé{}\net {} prévu{} durant la période de validité.".format(label, verbe_avoir, accord, verbe_etre, accord)
+        else:
+            qualificatif = "{} {} {}{}".format(label, self.description_comparatif, seuil, unite)
+            if fcst=="FCST":
+                phrase = "{} {} prévu{} durant la période de validité.".format(qualificatif, verbe_etre, accord)
+            elif fcst=="OBS":
+                phrase = "{} {} été observé{}.".format(qualificatif, verbe_avoir, accord)
+            elif fcst=="OBSAT":
+                phrase = "{} {} été observé{} à {}.".format(qualificatif, verbe_avoir, accord, datetime.strftime(at),"%H:%M")
+            elif fcst=="OBSATANDFCST":
+                phrase = "{} {} été observé{} à {}\net {} prévu{} durant la période de validité.".format(qualificatif, 
+                                            verbe_avoir, accord, datetime.strftime(at),"%H:%M", verbe_etre, accord)
+            elif fcst=="OBSANDFCST":
+                phrase = "{} {} été observé{}\net {} prévu{} durant la période de validité.".format(qualificatif, 
+                                            verbe_avoir, accord, verbe_etre, accord)
+
+        return phrase
+        
 class AutorisedMAAs(object):
     autorised = {
-        'TS':AutorisedMAA('TS', 'Orage', auto=True, occurrence=True),
-        'SQ':AutorisedMAA('SQ', 'Grain', auto=False, occurrence=True),
-        'DENSE_FG':AutorisedMAA('DENSE_FG', 'Brouillard dense', auto=False, occurrence=True), 
-        'SN':AutorisedMAA('SN', 'SN', auto=False, occurrence=True),
-        'FZDZ':AutorisedMAA('FZDZ', 'FZDZ', auto=False, occurrence=True),
-        'VENT_MOY':AutorisedMAA('VENT_MOY', 'VENT_MOY', auto=False, occurrence=False),
-        'VEHICLE_RIME':AutorisedMAA('VEHICLE_RIME', 'VEHICLE_RIME ', auto=False, occurrence=True),
-        'TMIN':AutorisedMAA('TMIN', 'TMIN ', auto=False, occurrence=False),
-        'HVY_GR':AutorisedMAA('HVY_GR', 'HVY_GR ', auto=False, occurrence=True),
-        'TOXCHEM':AutorisedMAA('TOXCHEM', 'TOXCHEM ', auto=False, occurrence=True),
-        'TC':AutorisedMAA('TC', 'TC ', auto=False, occurrence=True),
-        'DU':AutorisedMAA('DU', 'DU ', auto=False, occurrence=True),
-        'TMAX':AutorisedMAA('TMAX', 'TMAX ', auto=False, occurrence=False),
-        'HVY_SN':AutorisedMAA('HVY_SN', 'HVY_SN ', auto=False, occurrence=True),
-        'FG':AutorisedMAA('FG', 'FG ', auto=False, occurrence=True),
-        'HVY_TS':AutorisedMAA('HVY_TS', 'HVY_TS ', auto=False, occurrence=True),
-        'FWOID':AutorisedMAA('FWOID', 'FWOID ', auto=False, occurrence=True),
-        'ICE_DEPOSIT':AutorisedMAA('ICE_DEPOSIT', 'ICE_DEPOSIT ', auto=False, occurrence=True),
-        'RR1':AutorisedMAA('RR1', 'RR1 ', auto=False, occurrence=False),
-        'RR3':AutorisedMAA('RR3', 'RR3 ', auto=False, occurrence=False),
-        'RR6':AutorisedMAA('RR6', 'RR6 ', auto=False, occurrence=False),
-        'RR12':AutorisedMAA('RR12', 'RR12 ', auto=False, occurrence=False),
-        'RR24':AutorisedMAA('RR24', 'RR24 ', auto=False, occurrence=False),
-        'HVY_FZDZ':AutorisedMAA('HVY_FZDZ', 'HVY_FZDZ ', auto=False, occurrence=True),
-        'FWID':AutorisedMAA('FWID', 'FWID ', auto=False, occurrence=True),
-        'FZRA':AutorisedMAA('FZRA', 'FZRA ', auto=False, occurrence=True),
-        'GR':AutorisedMAA('GR', 'GR ', auto=False, occurrence=True),
-        'VENT':AutorisedMAA('VENT', 'VENT ', auto=False, occurrence=False),
-        'RIME':AutorisedMAA('RIME', 'RIME ', auto=False, occurrence=True),
-        'VA':AutorisedMAA('VA', 'VA ', auto=False, occurrence=True),
-        'HVY_FZRA':AutorisedMAA('HVY_FZRA', 'HVY_FZRA ', auto=False, occurrence=True),
-        'SNRA':AutorisedMAA('SNRA', 'SNRA ', auto=False, occurrence=True),
-        'SA':AutorisedMAA('SA', 'SA ', auto=False, occurrence=True),
-        'HVY_SNRA':AutorisedMAA('HVY_SNRA', 'HVY_SNRA ', auto=False, occurrence=True),
-        'SEA':AutorisedMAA('SEA', 'SEA ', auto=False, occurrence=True),
-        'FZFG':AutorisedMAA('FZFG', 'FZFG ', auto=False, occurrence=True),
-        'BLSN':AutorisedMAA('BLSN', 'BLSN ', auto=False, occurrence=True),
-        'TSUNAMI':AutorisedMAA('TSUNAMI', 'TSUNAMI ', auto=False, occurrence=True),
-        'HVY_SWELL':AutorisedMAA('HVY_SWELL', 'HVY_SWELL', auto=False, occurrence=True),
+        'TS':AutorisedMAA('TS', 'Orage', auto=True, occurrence=True, 
+            decription_genre_féminin= False, description_singulier=False, description_label="orages", description_comparatif=None), 
+
+        'HVY_TS':AutorisedMAA('HVY_TS', 'HVY_TS ', auto=False, occurrence=True, 
+            decription_genre_féminin= False, description_singulier=False, description_label="orages violents", description_comparatif=None), 
+
+        'SQ':AutorisedMAA('SQ', 'Grain', auto=False, occurrence=True, 
+        decription_genre_féminin= False, description_singulier=True, description_label="grain", description_comparatif=None), 
+
+        'FG':AutorisedMAA('FG', 'FG ', auto=False, occurrence=True, 
+            decription_genre_féminin= False, description_singulier=True, description_label="brouillard", description_comparatif=None), 
+
+        'DENSE_FG':AutorisedMAA('DENSE_FG', 'Brouillard dense', auto=False, occurrence=True, 
+            decription_genre_féminin= False, description_singulier=True, description_label="brouillard dense", description_comparatif=None), 
+
+        'SN':AutorisedMAA('SN', 'SN', auto=False, occurrence=True,
+            decription_genre_féminin= True, description_singulier=True, description_label="neige", description_comparatif=None), 
+        'HVY_SN':AutorisedMAA('HVY_SN', 'HVY_SN ', auto=False, occurrence=True,
+            decription_genre_féminin= True, description_singulier=True, description_label="neige forte", description_comparatif=None), 
+
+        'FZDZ':AutorisedMAA('FZDZ', 'FZDZ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="bruine verglaçante", description_comparatif=None), 
+        'HVY_FZDZ':AutorisedMAA('HVY_FZDZ', 'HVY_FZDZ ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="bruine verglaçante forte", description_comparatif=None), 
+
+        'VENT_MOY':AutorisedMAA('VENT_MOY', 'VENT_MOY', auto=False, occurrence=False,
+        decription_genre_féminin= False, description_singulier=True, description_label="vent moyen", description_comparatif=">=", description_unit="kt"), 
+        
+        'VENT':AutorisedMAA('VENT', 'VENT ', auto=False, occurrence=False,
+        decription_genre_féminin= False, description_singulier=False, description_label="vent max ou rafales", description_comparatif=">=", description_unit="kt"), 
+        
+        'VEHICLE_RIME':AutorisedMAA('VEHICLE_RIME', 'VEHICLE_RIME ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="gelée blanche véhicule", description_comparatif=None), 
+        
+        'TMIN':AutorisedMAA('TMIN', 'TMIN ', auto=False, occurrence=False,
+        decription_genre_féminin= True, description_singulier=True, description_label="température", description_comparatif="<=", description_unit="°C"),
+
+        'TMAX':AutorisedMAA('TMAX', 'TMAX ', auto=False, occurrence=False,
+        decription_genre_féminin= True, description_singulier=True, description_label="température", description_comparatif=">=", description_unit="°C"),
+        
+        'TOXCHEM':AutorisedMAA('TOXCHEM', 'TOXCHEM ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=False, description_label="produits chimiques toxiques", description_comparatif=None), 
+
+        'TC':AutorisedMAA('TC', 'TC ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=False, description_label="cyclones tropicaux", description_comparatif=None), 
+       
+        'DU':AutorisedMAA('DU', 'DU ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=False, description_label="vents de poussiere", description_comparatif=None),
+        'DS':AutorisedMAA('DS', 'DS ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="tempêtes de poussiere", description_comparatif=None),
+        'SS':AutorisedMAA('SS', 'SS ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="tempêtes de sable", description_comparatif=None),
+        
+        'RIME':AutorisedMAA('RIME', 'RIME ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="gelées blanches", description_comparatif=None),
+        
+        'RR1':AutorisedMAA('RR1', 'RR1 ', auto=False, occurrence=False,
+        decription_genre_féminin= False, description_singulier=False, description_label="cumuls de précipitations", description_comparatif=">=", description_unit="mm/1h"),
+        'RR3':AutorisedMAA('RR3', 'RR3 ', auto=False, occurrence=False,
+        decription_genre_féminin= False, description_singulier=False, description_label="cumuls de précipitations", description_comparatif=">=", description_unit="mm/3h"),
+        'RR6':AutorisedMAA('RR6', 'RR6 ', auto=False, occurrence=False,
+        decription_genre_féminin= False, description_singulier=False, description_label="cumuls de précipitations", description_comparatif=">=", description_unit="mm/6h"),
+        'RR12':AutorisedMAA('RR12', 'RR12 ', auto=False, occurrence=False,
+        decription_genre_féminin= False, description_singulier=False, description_label="cumuls de précipitations", description_comparatif=">=", description_unit="mm/12h"),
+        'RR24':AutorisedMAA('RR24', 'RR24 ', auto=False, occurrence=False,
+        decription_genre_féminin= False, description_singulier=False, description_label="cumuls de précipitations", description_comparatif=">=", description_unit="mm/24h"),
+
+        'GR':AutorisedMAA('GR', 'GR ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="grêle", description_comparatif=None),
+        'HVY_GR':AutorisedMAA('HVY_GR', 'HVY_GR ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="grêle forte", description_comparatif=None),
+
+        'FWOID':AutorisedMAA('FWOID', 'FWOID ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="Tempé <0°C sans dépot de glace au sol", description_comparatif=None),
+        
+        'FWID':AutorisedMAA('FWID', 'FWID ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="Tempé <0°C avec dépot de glace au sol", description_comparatif=None),
+
+        'ICE_DEPOSIT':AutorisedMAA('ICE_DEPOSIT', 'ICE_DEPOSIT ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=False, description_label="dépots de glace", description_comparatif=None),
+
+        'FZFG':AutorisedMAA('FZFG', 'FZFG ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=True, description_label="brouillard givrant", description_comparatif=None),
+        
+        'SNRA':AutorisedMAA('SNRA', 'SNRA ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="pluies et neiges mélées", description_comparatif=None),
+        'HVY_SNRA':AutorisedMAA('HVY_SNRA', 'HVY_SNRA ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="pluies et neiges mélées fortes", description_comparatif=None),
+
+        'FZRA':AutorisedMAA('FZRA', 'FZRA ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=True, description_label="pluie verglaçante", description_comparatif=None),
+        'HVY_FZRA':AutorisedMAA('HVY_FZRA', 'HVY_FZRA ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="pluies verglaçantes fortes", description_comparatif=None),
+
+        'SA':AutorisedMAA('SA', 'SA ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="tempêtes de sable", description_comparatif=None),
+
+        'VA':AutorisedMAA('VA', 'VA ', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="cendres volcaniques", description_comparatif=None),
+        
+        'SEA':AutorisedMAA('SEA', 'SEA ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=False, description_label="coups de mer", description_comparatif=None),
+
+        'INV_TEMPE':AutorisedMAA('INV_TEMPE', 'INV_TEMPE', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="inversions de température", description_comparatif=None),
+
+        'BLSN':AutorisedMAA('BLSN', 'BLSN ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=True, description_label="poudrin de glace", description_comparatif=None),
+
+        'TSUNAMI':AutorisedMAA('TSUNAMI', 'TSUNAMI ', auto=False, occurrence=True,
+        decription_genre_féminin= False, description_singulier=False, description_label="tsunamis", description_comparatif=None),
+
+        'HVY_SWELL':AutorisedMAA('HVY_SWELL', 'HVY_SWELL', auto=False, occurrence=True,
+        decription_genre_féminin= True, description_singulier=False, description_label="fortes houles", description_comparatif=None),
     }
+
+    AUTORISED_FCST = ['FCST', 'OBS', 'OBSAT', 'OBSATANDFCST', 'OBSANDFCST'] #TODO: cf les restrictions sur les type de fcst
 
     @staticmethod
     def get_choices()-> list:
@@ -68,6 +212,11 @@ class AutorisedMAAs(object):
     @staticmethod
     def is_automatisable(type_maa)-> bool:
         return AutorisedMAAs.autorised[type_maa].automatisable == True
+    
+    @staticmethod
+    def get_instance(type_maa)-> AutorisedMAA:
+        return AutorisedMAAs.autorised.get(type_maa, None)
+    
 
 class Region(models.Model):
     """ Région météo regroupant les aéroport"""
@@ -101,9 +250,22 @@ class Station(Activable):
     def __str__(self):
         return "{}- {} ({})".format(self.oaci, self.nom, self.region)
 
+    def is_kt(self):
+        """ simple booléen qui retourne True si l'unité est en kt """
+        print(self.wind_unit)
+        return self.wind_unit == 'kt'
+    
+    def get_wind_with_station_unit(self, ff):
+        """ Permet de convertir facilement le vent dans l'unité propre à la station 
+            on fournit une valeur de vent en kt, en on retourne ff dans l'unité station et le label (unit, label)
+        """
+        if self.wind_unit == 'kt':
+            return (ff, ('kt','kt'))
+        else:
+            return (round ( (ff * 1.852), 0 ), ('km','km/h'))
 class ConfigMAA(Activable):
     """ Liste les MAA autorisés pour une station"""
-    station = models.ForeignKey(Station, on_delete=models.CASCADE, null=False)
+    station = models.ForeignKey(Station, related_name='configmaa', on_delete=models.CASCADE, null=False)
     type_maa = models.CharField(max_length=20, null=False, choices= AutorisedMAAs.get_choices())
     seuil = models.FloatField(null=True, blank=True)
     auto = models.BooleanField(null=False, default= False)
@@ -120,6 +282,17 @@ class ConfigMAA(Activable):
 
         return reponse
     
+    def get_seuil_unit(self):
+        """ Permet de retourner l'unité et le seuil dans cette unité.
+            Ceci n'a d'intérêt que pour le vent
+        """
+        if self.type_maa in ['VENT', 'VENT_MOY']:
+            unite, label = self.station.winwind_unit
+            if unite== 'kt':
+                return unite, self.seuil
+            else:
+                return unite, round ( (self.seuil * 1.852), 0 )
+        return None, None
     class Meta:
         ordering = ["station", "type_maa", "seuil"]
 

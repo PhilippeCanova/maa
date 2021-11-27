@@ -54,6 +54,7 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
+BASIC_AUTH_REALM = "MAAWorld"
 
 INSTALLED_APPS = [
     'myproject.apps.income.apps.IncomeConfig',
@@ -62,6 +63,7 @@ INSTALLED_APPS = [
     'donneur',
     'analyseur',
     'configurateur',
+    'producteur',
     'profiles.apps.ProfilesConfig',
     'django.contrib.admin',
     'django.contrib.auth',

@@ -3,7 +3,10 @@ from django.test import LiveServerTestCase
 import pdb;
 
 from selenium import webdriver # Pour utiliser Selenium
-from myproject.apps.core.models import Region, Station, Profile, ConfigMAA, EnvoiMAA, Client, MediumMail, Log
+from configurateur.models import Region, Station, ConfigMAA,  Client, MediumMail
+from analyseur.models import EnvoiMAA
+from myproject.apps.core.models import Log
+from profiles.models import Profile
 from django.contrib.auth.models import User, Group, Permission
 
 from myproject.apps.core.management.commands.initiate import Initiate
@@ -37,7 +40,7 @@ class ConnexionTestCase(LiveServerTestCase):
         super().tearDownClass()
 
     def test_connect_to_admin(self):
-        home_page = self.browser.get(self.live_server_url + '/admin/')
+        home_page = self.browser.get(self.live_server_url + '/adminMAA/')
 
         # Recherche un élément particulier dans la page
         brand_element = self.browser.find_element_by_css_selector('#site-name')
@@ -55,14 +58,10 @@ class ConnexionTestCase(LiveServerTestCase):
         pwd_input.send_keys('djangofr')
         self.browser.find_element_by_css_selector('.submit-row input').click()
 
-        
-        print(self.browser.current_url)
-        print (self.live_server_url)
-
         stations_link = self.browser.find_element_by_link_text('Stations')
     
         self.assertEqual(stations_link.get_attribute('href'),
-           self.live_server_url + '/admin/core/station/'
+           self.live_server_url + '/adminMAA/configurateur/station/'
         )
         stations_link.click()
 

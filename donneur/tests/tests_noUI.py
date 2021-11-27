@@ -289,7 +289,7 @@ class RetrieveData_TestCase(TestCase):
         self.assertEqual( self.batterie_tests(assembleur, dt(2021,11,11,0,0,0), 'LFRN'), [])
         self.assertEqual( self.batterie_tests(assembleur, dt(2021,11,11,1,0,0), 'LFRN'), ['TS', 'VENT'])
         self.assertEqual( assembleur.question_declenche('LFRN', dt(2021,11,11,1,0,0), 'TS', ''), True)
-
+        #TODO: trouver des cas pour évaluer également les VENT_MOY
         self.assertEqual( self.batterie_tests(assembleur, dt(2021,11,11,2,0,0), 'LFRN'), ['GR'])
         self.assertEqual( self.batterie_tests(assembleur, dt(2021,11,11,3,0,0), 'LFRN'), ['FG', 'FZDZ', 'FZRA', 'SQ'])
         self.assertEqual( self.batterie_tests(assembleur, dt(2021,11,11,4,0,0), 'LFRN'), ['FG','FZFG', 'VENT'])

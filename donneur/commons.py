@@ -329,9 +329,21 @@ class AeroDataHoraire(object):
         """ Retourne le vent max (kt) """
         return max(self.FF, self.FX)
     
+    def get_mean_wind(self):
+        """ Retourne le vent moyen uniquement (kt) """
+        return self.FF
+    
+    def get_wind_dir(self):
+        """ Retourne la direction du vent (moyen) """
+        return (int(self.DD))
+
     def get_heure_TAF(self):
         """ Retourne un datetime mentionnant l'heure du TAF à l'origine de cette instance"""
         return self.heure_taf
+
+    def get_donnees_origine(self):
+        """ Permet de retourner au contexte la données d'origine. Ici, on va considéder que c'est la ligne du CDP Aéro """
+        return self.ligne
 
     def is_previous(self, dernier):
         """ Retourne True si l'instance passée correspond bien à l'heure passée """
@@ -784,6 +796,10 @@ class CDPDataHoraire(object):
         self.echeance = None
         self.ligne = None
 
+    def get_donnees_origine(self):
+        """ Permet de retourner au contexte la données d'origine. Ici, on va considéder que c'est la ligne du CDP H"""
+        return self.ligne
+
     def get_param(self, param):
         """ Retourne le paramètre convertit selon le type attendu.
             Si non trouvé, retourne None
@@ -803,6 +819,14 @@ class CDPDataHoraire(object):
     def get_max_wind(self):
         """ Retourne le vent max (kt) """
         return max(self.get_param('ff'), self.get_param('fx'))
+
+    def get_mean_wind(self):
+        """ Retourne le vent moyen uniquement (kt) """
+        return self.get_param('ff')
+        
+    def get_wind_dir(self):
+        """ Retourne la direction du vent """
+        return self.dd
 
     def occurrence_brume(self):
         """ Retourne True si BR fait partie des temps presents """
@@ -1074,18 +1098,10 @@ class ManagerData(object):
         self.aero = data_aero # instance de AeroDataStations
         self.cdp = data_cdph # instance de CDPDataStations
 
-    def question_declenche(self, oaci, echeance, type_maa, seuil=None):
-        """ Fonction qui prend en charge le test déclencheur (repérage d'une occurrence ou d'un dépassement de seuil
-        susceptible d'êtr pris en charge par un MAA.
-
-        Comme prévu par les spécs, priorité est donnée aux données aéronautiques.
-        
-        Retourne True si un dépassement est observé (ou occurrence positive) et l'heure du TAF si la donnée provient 
-        du conteneur aéro ou None sinon.
-
-        A l'écriture du code, les types qui sont scuceptibles d'être automatisés et donc analysés ici sont :
-            - les maa par seuil : vent (attendu des kt), tempé (attendu des °C), RR (attendu mm)
-            - les maa occurrence suivants : TS, GR, SQ, FG, DENSE_FG, FZFG, FZRA, FZDZ
+    def questionne_cdp(self, oaci, echeance, type_maa, seuil=None):
+        """ Pour le descryptif, voir question_declenche
+            Cette fonction retourne la même chose avec en plus la date d'émission du TAF si c'est bien le 
+            TAF qui en est à l'origine, ou None sinon
         """
         origine = None # Permet de déterminer si cela provient du TAF
         data = None
@@ -1108,27 +1124,107 @@ class ManagerData(object):
                 data = data.get_echeance(echeance)
 
         if data is not None: # Pas trouvé cette data
-            # On a le conteneur en main, on peut faire lancer le test   
+            # On a le conteneur en main, on peut faire lancer le test 
+            #TODO: on doit pouvoir définir ces évalutations dans les objets AutorisedMAA pour plus d'encapsulation
             try:   
                 if type_maa == 'VENT':
-                    return seuil <= data.get_max_wind()
+                    return seuil <= data.get_max_wind(), origine
+                if type_maa == 'VENT_MOY':
+                    return seuil <= data.get_mean_wind(), origine
                 if type_maa == 'TMIN':
-                    return seuil >= data.get_param('t')
+                    return seuil >= data.get_param('t'), origine
                 if type_maa == 'TMAX':
-                    return seuil <= data.get_param('t')
+                    return seuil <= data.get_param('t'), origine
                 if type_maa in ['RR1', 'RR3', 'RR6', 'RR12', 'RR24']:
-                    return seuil <= data.get_param(type_maa.lower())
+                    return seuil <= data.get_param(type_maa.lower()), origine
                 if type_maa in ['TS','GR', 'SQ', 'FG', 'FZFG', 'FZRA', 'FZDZ']:
-                    return type_maa in data.get_WW()
+                    return type_maa in data.get_WW(), origine
                 if type_maa == 'DENSE_FG': 
-                    return data.occurrence_brouillard_dense()
+                    return data.occurrence_brouillard_dense(), origine
                 
             except Exception as e:
                 print('From question_declenche:', e)
                 print(oaci, echeance, type_maa)
                 #TODO: remonter un log sur la raison de l'erreur
-                    
-        return False        
+        return False, None
+
+    def question_declenche(self, oaci, echeance, type_maa, seuil=None):
+        """ Fonction qui prend en charge le test déclencheur (repérage d'une occurrence ou d'un dépassement de seuil
+        susceptible d'êtr pris en charge par un MAA.
+
+        Comme prévu par les spécs, priorité est donnée aux données aéronautiques.
+        
+        Retourne True si un dépassement est observé (ou occurrence positive) et l'heure du TAF si la donnée provient 
+        du conteneur aéro ou None sinon.
+
+        A l'écriture du code, les types qui sont scuceptibles d'être automatisés et donc analysés ici sont :
+            - les maa par seuil : vent (attendu des kt), tempé (attendu des °C), RR (attendu mm)
+            - les maa occurrence suivants : TS, GR, SQ, FG, DENSE_FG, FZFG, FZRA, FZDZ
+
+        Pour des questions pratiques, on délègue ce traitement à une autre fonction qui retourne également l'origine du 
+        test déclenche => création des MAA OBS
+        """
+        reponse, origine = self.questionne_cdp(oaci, echeance, type_maa, seuil)
+        return reponse      
+
+    def get_context_TAF(self, oaci): 
+        """ Permet d'extraire de l'archive les données issues du TAF """
+        station = self.aero.getStation(oaci)
+        if station is None:
+            return "Pas de context TAF à fournir pour la station {}".format(oaci)
+
+        lignes = []
+        for echeance in station.ordered_echeances:
+            lignes.append(station.get_echeance(echeance).get_donnees_origine())
+        return "\n".join(lignes)
+
+    def get_context_CDP(self, oaci): 
+        """ Permet d'extraire de l'archive les données issues du TAF """
+        station = self.cdp.getStation(oaci)
+        if station is None:
+            return "Pas de context CDP à fournir pour la station {}".format(oaci)
+
+        lignes = []
+        for echeance in station.ordered_echeances:
+            lignes.append(station.get_echeance(echeance).get_donnees_origine())
+        return "\n".join(lignes)
+
+    def get_vent(self, oaci, echeance):
+        """ Cette fonction d'interface permet de retourner les informations de vent qui ont servi pour le MAA
+            Si l'info est dispo dans le cdp aéro, c'est elle qu'on prend. Sinon cdp h
+            Le format de retour est du type : (ff, fx, dd) avec des vent en kt
+        """
+        data = self.aero.getStation(oaci)
+        if data is not None:
+            data = data.get_echeance(echeance)
+
+        if data is None:
+            # Le test sera fait par le cdp h/q
+            data = self.cdp.getStation(oaci)
+            if data is not None:
+                data = data.get_echeance(echeance)
+        if data is None:
+            return None
+
+        # A trouvé la station et l'échéance. On peut récupérer les infos de vent
+        ff = data.get_mean_wind()
+        fx = data.get_max_wind()
+        dd = data.get_wind_dir()
+        return (ff, fx, dd)
+    
+    def get_tempe(self, oaci, echeance):
+        """ Cette fonction d'interface permet de retourner les informations de température qui ont servi pour le MAA
+            L'info ne peut venir que de la température
+            Le format de retour est du type : t avec des température en °C
+        """
+        data = self.cdp.getStation(oaci)
+        if data is not None:
+            data = data.get_echeance(echeance)
+        if data is None:
+            return None
+
+        # A trouvé la station et l'échéance. On peut récupérer les infos de vent
+        return data.get_param('t') 
 
 def provide_manager (stations):
     """ Demande la récupération des donnnées et retourne un manager 
@@ -1156,6 +1252,7 @@ def provide_manager (stations):
     assembleur = ManagerData(datas_aero, datas)
 
     return assembleur
+
 
 
 if __name__ == '__main__':

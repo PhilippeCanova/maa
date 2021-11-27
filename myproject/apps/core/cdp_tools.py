@@ -4,7 +4,8 @@ import sys, urllib3
 
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
-from myproject.apps.core.models import Region, Station, ConfigMAA, EnvoiMAA, Client, MediumMail, Log
+from myproject.apps.core.models import Log
+from configurateur.models import Region, ConfigMAA, Client, MediumMail, Station
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings

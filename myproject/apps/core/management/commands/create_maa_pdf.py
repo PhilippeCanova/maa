@@ -4,7 +4,8 @@ import datetime
 
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
-from myproject.apps.core.models import Region, Station, ConfigMAA, EnvoiMAA
+from configurateur.models import Region, Station, ConfigMAA
+from analyseur.models import EnvoiMAA
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.http import FileResponse
@@ -43,7 +44,7 @@ class Command(BaseCommand):
         print (envoi)
         
         base_dir = Path(__file__).parent
-        from myproject.apps.core.pdf_tools import MaaPDF
+        from producteur.pdf_tools import MaaPDF
         pdf = MaaPDF(str(base_dir.joinpath("test.pdf").absolute()), envoi)
 
             

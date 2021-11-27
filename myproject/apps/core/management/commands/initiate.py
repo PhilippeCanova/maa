@@ -188,6 +188,8 @@ class Initiate(object):
         configurateur, create = Group.objects.get_or_create(name="Configurateur")
         administrateur, create = Group.objects.get_or_create(name="Administrateur")
         superadmin, create = Group.objects.get_or_create(name="Super admin")
+        maa_manuel, create = Group.objects.get_or_create(name="Editeur manuel")
+        
         
         # Droits sur Station
         content_Station = ContentType.objects.get_for_model(Station)
@@ -218,7 +220,7 @@ class Initiate(object):
 
         superadmin.permissions.add(Permission.objects.get(codename='delete_profile', content_type=content_Region))
         superadmin.permissions.add(Permission.objects.get(codename='delete_user', content_type=content_User))
-
+        
 
         # Droits sur les configMAA
         content_ConfiMAA = ContentType.objects.get_for_model(ConfigMAA)
@@ -235,8 +237,10 @@ class Initiate(object):
 
         # Droits sur les envoi MAA
         envoi_maa = ContentType.objects.get_for_model(EnvoiMAA)
-
         configurateur.permissions.add(Permission.objects.get(codename='view_envoimaa', content_type=envoi_maa))
+        # Créé un droit particulier pour éditer des maa manuels
+        edit_manuel, nope = Permission.objects.get_or_create(codename = 'envoimaa_manuel', name="Can Send manual MAA", content_type=envoi_maa)
+        maa_manuel.permissions.add(edit_manuel)
         
         """configurateur.permissions.add(Permission.objects.get(codename='add_envoimaa', content_type=envoi_maa))
         configurateur.permissions.add(Permission.objects.get(codename='change_envoimaa', content_type=envoi_maa))
@@ -280,6 +284,11 @@ class Initiate(object):
         user.groups.add(configurateur)
         user.save()
 
+        user = User.objects.create_user('expair', 'expair.le@meteo.fr', 'expair')
+        user.is_staff = False
+        user.groups.add(maa_manuel)
+        user.save()
+
         user = User.objects.create_user('configurateur', 'config.le@meteo.fr', 'djangofr')
         user.is_staff = True
         user.profile.region = Region.objects.get(tag = "DIRN")
@@ -310,7 +319,7 @@ class Initiate(object):
             date_debut = datetime.datetime.utcnow().replace(minute =0).replace(second=0) + datetime.timedelta (hours= 3),
             date_fin = datetime.datetime.utcnow().replace(minute =0).replace(second=0) + datetime.timedelta (hours= 8),
             numero = 1,
-            fcst=True,
+            fcst="FCST",
             status = 'to_send',
             message = """LFBT AD WRNG 1 VALID 201356/201500
 TS OBS.
@@ -330,8 +339,8 @@ LFPG,20180722180000,NSW,,,6,6,,26.5,,,0.0,0.0,0.0,0.0,0.0,0,0,0,,0.0,35,""",
             message_sms = "message SMS",
             
         )
-        with open(base_dir.joinpath('MAAx.pdf'), 'rb') as f:
-            envoi.message_pdf.save("MAA_LFPG_TS_1_20210824052410_1.pdf", File(f))
+        #with open(base_dir.joinpath('MAAx.pdf'), 'rb') as f:
+        #    envoi.message_pdf.save("MAA_LFPG_TS_1_20210824052410_1.pdf", File(f))
         
         client = Client(
             nom = "Canova",

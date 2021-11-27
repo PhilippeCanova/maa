@@ -1,14 +1,14 @@
-import urllib3, datetime
+import urllib3
 from pathlib import Path
 from unittest.mock import patch
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 from django.test import TestCase
 from django.db import models
 from django.test import LiveServerTestCase, RequestFactory
 from urllib3.packages.six import assertCountEqual
 
-from configurateur.models import Station, ConfigMAA
+from configurateur.models import Station, ConfigMAA, Region
 from donneur.commons import AeroDataStations, CDPDataStations, ManagerData
 from donneur.commons import retrieveDatasCDPH_om, retrieveDatasCDPQ_om, retrieveDatasAero
 from donneur.commons import retrieveDatasCDPH_metropole, retrieveDatasCDPQ_metropole
@@ -229,7 +229,6 @@ class AnalyseData_TestCase(TestCase):
         self.assertEqual(delai_retention_depasse(NOW, envoi), True)
         self.assertEqual(bientot_fini(NOW, envoi), True)
         
-
     def test_debut_plage_recherche(self):
         """ Teste la fonction de définition de la place horaire potentiel d'un début de MAA
         """
@@ -296,6 +295,90 @@ class AnalyseData_TestCase(TestCase):
         debut = recherche_debut_maa(assembleur, 'LFRN', periode, configmaa)
         self.assertEqual(debut, datetime(2021,11,11,1))
 
+    def create_envoimaa_TS(self, oaci, heure_envoi, debut, fin):
+        """ Permet de simulter un maa en cours de type TS pour une station oaci 
+            en fixant les heures d'envoi, de début et de fin.
+
+            Renvoie l'instant de l'envoi.
+        """
+        station = Station.objects.get(oaci = oaci)
+        station.retention = 1
+        station.reconduction = 3
+        station.repousse = 3
+        station.save()
+        
+        conf_maa = ConfigMAA.objects.get(station__oaci = oaci, type_maa= 'TS')
+        conf_maa.seuil = None
+        conf_maa.scan = 12
+        conf_maa.auto = True
+        conf_maa.save()
+
+        envoi = EnvoiMAA.objects.create(
+            configmaa = conf_maa,
+            date_envoi = heure_envoi,
+            date_debut = debut,
+            date_fin = fin,
+            numero = 1,
+            fcst="FCST",
+            status = 'to_send',
+            message = "Cors message",
+            context_TAF = "context TaF",
+            log = "Ici, les logs de création",
+            message_mail = 'Corps du mail',
+            message_sms = "message SMS",
+        )
+        envoi.save()
+        return envoi
+    
+    def test_messages_raw(self):
+        """ Teste la création des messages MAA brutes
+        """
+        from analyseur.production import create_raw_message
+
+        station, cree = Station.objects.get_or_create(oaci = "AAAA", nom = "Station test", entete= "WLFR67 LFST",  
+                    region = Region.objects.get(tag="DIRSE"), inseepp = "00000000", outremer = False, date_pivot = datetime.utcnow(), 
+                    ouverture = time(0,0), ouverture_ete = time(0,0), ouverture_hiver = time(0,0), 
+                    fermeture = time(23,0), fermeture_ete = time(23,0), fermeture_hiver = time(23,0), 
+                    retention = 1, reconduction = 1, repousse = 1, fuseau = "fuseau", 
+                    wind_unit = ('kt','kt'), temp_unit=('c',"°C"))
+
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'VENT', seuil = 10, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,6,0,0), datetime(2021,11,11,8,0,0), "FCST")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'VENT_MOY', seuil = 10, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,6,0,0), datetime(2021,11,11,8,0,0), "OBS")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'TMIN', seuil = -1, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,6,0,0), datetime(2021,11,11,8,0,0), "OBS")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'TMAX', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "OBS")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'RR3', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "OBS")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'SN', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "FCST")     
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "FCST", valeur_neige=5)
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'FWID', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "FCST")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'FWOID', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "FCST")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'DU', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "FCST")
+        
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'TOXCHEM', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "FCST")
+        
+        station.fermeture = time(23,59)
+        configmaa = ConfigMAA.objects.create( station = station, type_maa = 'ICE_DEPOSIT', seuil = 30, auto = True, pause = 2, scan = 12, profondeur = 12)
+        message = create_raw_message(configmaa, 1, datetime(2021,11,11,16,0,0), datetime(2021,11,12,8,0,0), "FCST")
+        
+        print (message)
+        
     @patch("donneur.commons.request_data_cdp")
     def test_analyse_15mn(self, mock_request_data_cdp):
         """ Test la bonne prise en charge des heures d'ouverture et fermeture.
@@ -312,8 +395,60 @@ class AnalyseData_TestCase(TestCase):
             self.get_data_tc(num_TC,'cdpqom'),  
         ]
 
-        NOW = datetime(2021,11,11,0,0,0)
+        # Pour les 8 type de MAA, doit générer un envoimaa (maa en cours) et un scénario pour un nouveau MAA potentiel couvrant le test
+
+
+        # Cas 1-1:
+        # Station de LFRN. MAA TS envoyé à 21-11-11 03TU pour la période 10TU-17TU.
+        # A 07:15TU, un MAA potentiel de 14TU à 17TU => début significativement repoussé donc cas 1.1
+        self.create_envoimaa_TS('LFRN', datetime(2021,11,11,3,0,0), datetime(2021,11,11,10,0,0), datetime(2021,11,11,17,0,0))
+
+        # Cas 1.2:
+        # Station de LFMN. MAA TS envoyé à 21-11-11 03TU pour la période 07TU-17TU.
+        # A 07:15TU, un MAA potentiel ne commençant qu'à 11TU et finissant à 16TU => début significativement repoussé donc cas 1.2
+        self.create_envoimaa_TS('LFMN', datetime(2021,11,11,3,0,0), datetime(2021,11,11,7,0,0), datetime(2021,11,11,17,0,0))
+
+        # Cas 1.3:
+        # Station de LFAQ. MAA TS envoyé à 21-11-11 03TU pour la période 07TU-17TU.
+        # A 07:15TU, un MAA potentiel commence à peu près à l'heure (08TU) mais termine à 13TU => fin début significativement anticipé
+        self.create_envoimaa_TS('LFAQ', datetime(2021,11,11,3,0,0), datetime(2021,11,11,7,0,0), datetime(2021,11,11,17,0,0))
+
+        # Cas 2:
+        # Station de LFBD. MAA TS envoyé à 21-11-11 03TU pour la période 10TU-17TU.
+        # A 07:15TU, un MAA potentiel commence de manière anticipée (08TU-17TU) => MAA d'anticipation
+        self.create_envoimaa_TS('LFBD', datetime(2021,11,11,3,0,0), datetime(2021,11,11,10,0,0), datetime(2021,11,11,17,0,0))
+
+        # Cas 3.1:
+        # Station de LFBE. MAA TS envoyé à 21-11-11 03TU pour la période 8TU-10TU.
+        # A 07:15TU, un MAA potentiel commence à 09TU (réseau d'analyse) et finit tardivement : 15TU) => MAA de repousse
+        self.create_envoimaa_TS('LFBE', datetime(2021,11,11,3,0,0), datetime(2021,11,11,8,0,0), datetime(2021,11,11,10,0,0))
+
+        # Cas 3.2:
+        # Station de LFBO. MAA TS envoyé à 21-11-11 03TU pour la période 5TU-15TU.
+        # A 07:15TU, un MAA potentiel commence à 11TU (réseau d'analyse) et finit à 17TU => sdébut de MAA de repoussé
+        self.create_envoimaa_TS('LFBO', datetime(2021,11,11,3,0,0), datetime(2021,11,11,5,0,0), datetime(2021,11,11,15,0,0))
+
+        # Cas 3.2:
+        # Station de LFKJ. MAA TS envoyé à 21-11-11 03TU pour la période 5TU-9TU.
+        # A 07:15TU, un MAA potentiel commence à 07TU (réseau d'analyse) et finit à 12TU => MAA de repoussé alors qu'on est proche de la fin de l'autre
+        self.create_envoimaa_TS('LFKJ', datetime(2021,11,11,3,0,0), datetime(2021,11,11,5,0,0), datetime(2021,11,11,9,0,0))
+
+        # Cas 4:
+        # Station de LFPB. MAA TS envoyé à 21-11-11 03TU pour la période 8TU-10TU.
+        # A 07:15TU, un MAA potentiel commence à 11TU et finit à 13TU => plus le même MAA on renvoit
+        self.create_envoimaa_TS('LFPB', datetime(2021,11,11,3,0,0), datetime(2021,11,11,8,0,0), datetime(2021,11,11,10,0,0))
+
+        # Cas 5:
+        # Station de LFRB. MAA TS envoyé à 21-11-11 03TU pour la période 6TU-10TU.
+        # A 07:15TU, plus de maa potentiel alors qu'il se termine dans plus d'une heure, on cancelle
+        self.create_envoimaa_TS('LFRB', datetime(2021,11,11,3,0,0), datetime(2021,11,11,5,0,0), datetime(2021,11,11,10,0,0))
+
+        NOW = datetime(2021,11,11,7,15,0)
         analyse_15mn(NOW)
+
+        # TODO: Vérifie la présence des MAA en base
+        
+
 
 
 

@@ -15,7 +15,9 @@ from configurateur.models import Station, ConfigMAA
 from analyseur.models import EnvoiMAA
 from configurateur.utils import chek_and_change_pivot_date
 from analyseur.models import EnvoiMAA
+from analyseur.production import create_maa_auto, create_cnl_maa_auto
 from donneur.commons import provide_manager
+
 
 def define_open_airport(NOW):
     """ Définit les stations sur lesquelles la production est actuellement assurée (injustement appelées ouvertes) 
@@ -51,6 +53,13 @@ def recherche_debut_maa(assembleur, oaci, periode_debut, configmaa):
         Retourne le datetime du premier déclenchement ou None si rien trouvé.
     """
     for echeance in periode_debut:
+
+        """if oaci == 'LFRN' and configmaa.type_maa == 'TS':
+            print('test question: ', echeance, configmaa.type_maa, configmaa.seuil)
+            print(assembleur.question_declenche(oaci, echeance, configmaa.type_maa, configmaa.seuil))
+            print(assembleur.aero.stations['LFRN'].ordered_echeances[0], assembleur.aero.stations['LFRN'].ordered_echeances[-1])
+            print()"""
+
         if assembleur.question_declenche(oaci, echeance, configmaa.type_maa, configmaa.seuil):
             return echeance
     return None
@@ -74,7 +83,7 @@ def recherche_fin_maa(assembleur, oaci, heure_debut_declenche, configmaa):
         S'il y a une interruption de plus de {Pause} heures, on considère le MAA terminé
         Retourne cette heure, ou à défaut au moins l'heure de début 
     """
-    heure_fin_max = heure_debut_declenche + configmaa.profondeur
+    heure_fin_max = heure_debut_declenche + timedelta(hours=configmaa.profondeur)
     echeances = [ heure_debut_declenche + timedelta(hours=i) for i in range(0, configmaa.profondeur)]
     pause = 0
     for echeance in echeances:
@@ -84,7 +93,7 @@ def recherche_fin_maa(assembleur, oaci, heure_debut_declenche, configmaa):
             pause = pause + 1
             if pause > configmaa.pause:
                 break
-    return echeance
+    return echeance - timedelta(hours=pause)
 
 def analyse_15mn(heure_analyse=datetime.utcnow()):
 
@@ -100,24 +109,34 @@ def analyse_15mn(heure_analyse=datetime.utcnow()):
     for station in stations:
         # Récupère les Config de MAA auto à tester.
         configmaa_to_check = ConfigMAA.objects.filter(station__oaci = station.oaci).filter(auto = True)
+        
+        # Lorsque plusieurs MAA sont envoyés pour une même station, il faut y insérer un numéro d'ordre.
+        # Donc on met en place un conteneur spécifique à la station et lorsque tous les types ont été balayés
+        # On fait un envoi groupé en fin
+        # Le groupe est du type : [ {log:str, 'configmaa':configmaa, 'creation': booleen (si flase, c'est un cnl) 
+        #                           'debut': heure_debut_declenche, 'fin': heure_fin_potentielle}]
+        groupe_envoi = []
 
         for configmaa in configmaa_to_check:
             # Récupère le MAA déjà en cours s'il y en a un
-            maa_en_cours = EnvoiMAA.objects.current_maas_by_type(station.oaci, configmaa.type_maa, heure_analyse, configmaa.seuil)
+            maa_en_cours = EnvoiMAA.current_maas_by_type(station.oaci, configmaa.type_maa, heure_analyse, configmaa.seuil)
 
             # Période de recherche du début d'un éventuel MAA
             periode_debut = define_start_laptime(heure_analyse, configmaa)
 
             heure_debut_declenche = recherche_debut_maa(manager_cdp, station.oaci, periode_debut, configmaa)
-        
+
             if heure_debut_declenche is None:
                 # Pas de MAA en vue
                 # S'il y a un MAA en cours, qu'on a passé la limite de rétention, et qu'il finit dans plus d'une heure, on doit le cancellé
                 # sinon on ne fait rien"""
+
                 if maa_en_cours is not None and delai_retention_depasse(heure_analyse, maa_en_cours):
-                    if bientot_fini(heure_analyse, maa_en_cours):
-                        #TODO: il faut générer une anulation de MAA
-                        pass
+                    if not bientot_fini(heure_analyse, maa_en_cours):
+                        log = "Génère un cas 5 (annulation pour {} effet immédiat".format(station.oaci)
+                        groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': False, 
+                                             'debut': None, 'fin': None, 'maa_annule': maa_en_cours})
+                        
 
                 # Plus rien à faire si pas de MAA en vue, donc on peut passer à la boucle suivante
                 continue
@@ -129,7 +148,66 @@ def analyse_15mn(heure_analyse=datetime.utcnow()):
 
             # On a donc maintenant un MAA en cours et un MAA potentiel. On va faire une suite de tests permettant
             # de savoir s'il y a opportunité d'envoyer un nouveau MAA. (cf spec DP-8)
-                       
+            # Nomenclature : 
+            # test1 = debut_new < debut_old
+            # test2 = NOW > limite de rétention
+            # test3 = fin_new <= fin_old
+            # test4 = NOW < debut_old
+            # test5 = debut_new > debut_old + repousse
+            # test6 = debut_new > NOW + repousse
+            # test7 = fin_new <= fin_old - repousse
+            # test8 = debut_new > fin_old
+            # test9 = fin_new <= fin_old + repousse
+            # test10 = NOW >= fin-old - reconduction
+            retention = station.retention
+            repousse = station.repousse
+            reconduction = station.reconduction
+
+            test1 = heure_debut_declenche < maa_en_cours.date_debut
+            test2 = heure_analyse > (maa_en_cours.date_envoi + timedelta(hours = retention))
+            test3 = heure_fin_potentielle <= maa_en_cours.date_fin
+            test4 = heure_analyse < maa_en_cours.date_debut
+            test5 = heure_debut_declenche > (maa_en_cours.date_debut + timedelta(hours = repousse))
+            test6 = heure_debut_declenche > (heure_analyse + timedelta(hours = repousse))
+            test7 = heure_fin_potentielle <= ( maa_en_cours.date_fin + timedelta(hours = repousse))
+            test8 = heure_debut_declenche > maa_en_cours.date_fin
+            #test9 = heure_fin_potentielle <= (maa_en_cours.date_fin + timedelta(hours = repousse))
+            test10 = heure_analyse >= (maa_en_cours.date_fin - timedelta(hours = reconduction))
+
+            if not test1 and test2 and test3 and test4 and test5:
+                log = "Génère un cas 1-1 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+            elif not test1 and test2 and test3 and not test4 and test6:
+                log = "Génère un cas 1-2 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+            elif not test1 and test2 and test3 and not test4 and not test6 and test7:
+                log = "Génère un cas 1-3 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+            elif test1:
+                log =  "Génère un cas 2 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+            elif not test1 and test2 and not test3 and test4 and not test8:
+                log = "Génère un cas 3-1 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+            elif not test1 and test2 and not test3 and not test4 and test6 and not test8 and not test10:
+                log = "Génère un cas 3-2 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+            elif not test1 and test2 and not test3 and not test4 and not test8 and test10:
+                log = "Génère un cas 3-3 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+            elif not test1 and test2 and not test3 and test8 :
+                log = "Génère un cas 4 pour {} de type {}/{} de {} à {}\n".format(station.oaci, configmaa.type_maa, configmaa.seuil, heure_debut_declenche, heure_fin_potentielle)
+                groupe_envoi.append({'log':log, 'configmaa':configmaa, 'creation': True, 'debut': heure_debut_declenche, 'fin': heure_fin_potentielle})
+
+        total = len(groupe_envoi)
+        for ind, envoi in enumerate(groupe_envoi):
+            if not envoi['creation']:
+                create_cnl_maa_auto(envoi['log'], manager_cdp, envoi['configmaa'], heure_analyse, ind+1, total, envoi['maa_annule'])
+            else:
+                create_maa_auto(envoi['log'], manager_cdp, envoi['configmaa'], heure_analyse, envoi['debut'], envoi['fin'], ind+1, total)
+            
+            
+
 
     
 
