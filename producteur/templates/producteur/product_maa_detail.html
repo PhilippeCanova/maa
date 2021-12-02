@@ -80,55 +80,92 @@
                     {% endif %}
                     <p >Message original :</p>
                         <p class="message_original">{{ envoimaa.message|linebreaksbr }}</p>
-                    {% if data_vent is not None %}
-                    <p >Données de vent pour les 24 prochaines heures :</p>
-                    <table class="tableau_vent">
-                           <tr>
-                            {% for data in data_vent|slice:"0:12" %} 
-                                <td><img  src="{% static 'producteur/fleche.png' %}" alt="{{data.dd}}" class="wind_picto" style="transform:rotate({{data.dd}}deg)"/><br>
-                                {% if data.fx.0 != data.ff.0 %}
-                                    <span class="ventfx">{{ data.fx.0|floatformat:"0" }} {{ data.fx.1.1 }}</span>
-                                {% endif %}<br>
-                                {{ data.ff.0|floatformat:"0" }} {{ data.ff.1.1 }}<br>
-                                {{ data.dd }}°</td>
-                            {% endfor %}
-                            
-                            </tr>
-                           <tr>
-                            {% for data in data_vent|slice:"0:12" %} 
-                                <td><br>{{data.echeance|date:"H" }}TU<br>
-                                    <span class="jour heure{{data.echeance|date:"H"}}">{{data.echeance|date:"D" }}</span></td>
-                            {% endfor %}
-                        </tr>
-                    </table>
-                    <br>
-                    <table class="tableau_vent">
-                           <tr>
-                            {% for data in data_vent|slice:"12:24" %} 
-                                <td><img  src="{% static 'producteur/fleche.png' %}" alt="{{data.dd}}" class="wind_picto" style="transform:rotate({{data.dd}}deg)"/><br>
-                                {% if data.fx.0 != data.ff.0 %}
-                                    <span class="ventfx">{{ data.fx.0|floatformat:"0" }} {{ data.fx.1.1 }}</span>
-                                {% endif %}<br>
-                                {{ data.ff.0|floatformat:"0" }} {{ data.ff.1.1 }}<br>
-                                {{ data.dd }}°</td>
-                            {% endfor %}
-                            
-                            </tr>
-                           <tr>
-                            {% for data in data_vent|slice:"12:24" %} 
-                                <td><br>{{data.echeance|date:"H" }}TU<br>
-                                    <span class="jour heure{{data.echeance|date:"H"}}">{{data.echeance|date:"D" }}</span></td>
-                            {% endfor %}
-                        </tr>
-                    </table>
+                    
+                    {% if ff is not None %}
+                    <div id="container"></div>
+                    <script src="{% static 'producteur/highcharts.src.js' %}" ></script>
+                    <script src="{% static 'producteur/modules/windbarb.js' %}" ></script>
+                    <script src="{% static 'producteur/modules/exporting.js' %}" ></script>
+                    <script src="{% static 'producteur/modules/export-data.js' %}" ></script>
+                    <script src="{% static 'producteur/modules/accessibility.js' %}" ></script>
+
+                    <script>
+                        Highcharts.chart('container', {
+                        title: {
+                            text: 'Données de vent des 24 prochaines heures.'
+                        },
+
+                        xAxis: {
+                            type: 'datetime',
+                            offset: 40
+                        },
+                        yAxis: {
+                            title: { text: 'Force du vent ({{ wind_unit }})'},
+                        },
+                        plotOptions: {
+                            series: {
+                                pointStart: Date.UTC( {{ first_echeance }} ),
+                                pointInterval: 36e5,
+                                animation: false,
+                            }
+                        },
+
+                        series: [
+                        {
+                                name: 'Vent max',
+                                type: 'area',
+                                color: '#ff0000',
+                                data:  [{{ fx }}],
+                        },
+                        {
+                            type: 'windbarb',
+                            data: [ {{ ff }} ],
+                            name: 'Vent moyen',
+                            color: Highcharts.getOptions().colors[1],
+                            showInLegend: false,
+                            tooltip: {
+                                valueSuffix: ' {{ wind_unit}}'
+                            }
+                        }, {
+                            type: 'area',
+                            keys: ['y', 'rotation'], // rotation is not used here
+                            data: [ {{ ff }} ],
+                            color: Highcharts.getOptions().colors[0],
+                            fillColor: {
+                                linearGradient: { x1: 0, x2: 0, y1: 0, y2: 1 },
+                                stops: [
+                                    [0, Highcharts.getOptions().colors[0]],
+                                    [
+                                        1,
+                                        Highcharts.color(Highcharts.getOptions().colors[0])
+                                            .setOpacity(1).get()
+                                    ]
+                                ]
+                            },
+                            name: 'Vent moyen',
+                            tooltip: {
+                                valueSuffix: ' {{ wind_unit}}'
+                            },
+                            states: {
+                                inactive: {
+                                    opacity: 1
+                                }
+                            }
+                        }]
+
+                        });
+                    </script>
                     {% endif %}
 
+
                     {% if temperatures is not None %}
-                    <p >Données de température pour les 24 prochaines heures :</p>
                     <div id="container"></div>
                     <script src="{% static 'producteur/highcharts.src.js' %}"></script>
                     <script>
                         Highcharts.chart('container', {
+                            title: {
+                                text: 'Données de température pour les 24 prochaines heures'
+                            },
                             chart: {
                                 type: 'line'
                             },

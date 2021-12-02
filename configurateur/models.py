@@ -217,7 +217,6 @@ class AutorisedMAAs(object):
     def get_instance(type_maa)-> AutorisedMAA:
         return AutorisedMAAs.autorised.get(type_maa, None)
     
-
 class Region(models.Model):
     """ Région météo regroupant les aéroport"""
     tag = models.TextField(max_length=10, null=False, unique=True, verbose_name="Tag région")
@@ -252,7 +251,6 @@ class Station(Activable):
 
     def is_kt(self):
         """ simple booléen qui retourne True si l'unité est en kt """
-        print(self.wind_unit)
         return self.wind_unit == 'kt'
     
     def get_wind_with_station_unit(self, ff):
@@ -263,6 +261,7 @@ class Station(Activable):
             return (ff, ('kt','kt'))
         else:
             return (round ( (ff * 1.852), 0 ), ('km','km/h'))
+
 class ConfigMAA(Activable):
     """ Liste les MAA autorisés pour une station"""
     station = models.ForeignKey(Station, related_name='configmaa', on_delete=models.CASCADE, null=False)
@@ -287,7 +286,7 @@ class ConfigMAA(Activable):
             Ceci n'a d'intérêt que pour le vent
         """
         if self.type_maa in ['VENT', 'VENT_MOY']:
-            unite, label = self.station.winwind_unit
+            unite = self.station.wind_unit
             if unite== 'kt':
                 return unite, self.seuil
             else:

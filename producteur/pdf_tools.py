@@ -1,7 +1,7 @@
 import reportlab
 from pathlib import Path
 import io
-import datetime
+from datetime import datetime 
 import asyncio, urllib3
 
 from urllib3 import ProxyManager
@@ -13,9 +13,36 @@ from reportlab.lib.units import inch, cm, mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.lib.colors import red, yellow, green
 
+from django.conf import settings
+from django.core.files import File
+from django.urls import reverse
+
 from configurateur.models import Region, Station, ConfigMAA
 from analyseur.models import EnvoiMAA
 from profiles.models import Profile
+
+def create_MAA_pdf_from_envoimaa(envoi):
+    """ Lance la création d'un PDF à partir d'un objet EnvoiMAA """
+    try:
+        base_dir = Path(__file__).parent
+        name = "MAA_{}_{}_{}_{}.pdf".format(
+                    envoi.configmaa.station.oaci, 
+                    envoi.configmaa.type_maa, 
+                    envoi.configmaa.seuil,
+                    envoi.date_envoi,
+                    )
+        chemin = base_dir.joinpath('tmp').joinpath(name) #TODO: dans les tests, vérifier la présence du répertoire tmp dans cette app.
+        #TODO: il y a sans doute moyen de passer par un fichier temporaire en mémoire
+        url = reverse('view_product_maa', args=[envoi.pk])
+        asyncio.run(html_to_pdf(url, chemin))
+        with open(chemin, 'rb') as f:
+            envoi.message_pdf.save(name, File(f))
+        envoi.save()
+    except Exception as e:
+        message = "\n{}".format(datetime.utcnow()) + str(e)
+        envoi.log = envoi.log + "\n{}".format(datetime.utcnow()) + str(e)
+        raise SystemError(message)
+    return envoi, chemin
 
 async def html_to_pdf(url, pdf_file):
     try:
@@ -26,18 +53,23 @@ async def html_to_pdf(url, pdf_file):
             "Install it first.",
             ImportError,
         )
-    browser = await launch(args=["--no-sandbox"])
+    browser = await launch(#args=["--no-sandbox"], 
+                            handleSIGINT=False,
+                            handleSIGTERM=False,
+                            handleSIGHUP=False)
     page = await browser.newPage()
 
     # Waiting for networkidle0 seems to let mathjax render
-    await page.goto(url, {"waitUntil": ["networkidle0"]})
+    url = settings.RUNNING_SERVER + url
+    print(url)
+    await page.goto( url , {"waitUntil": ["networkidle0"]})
     # Give it *some* margins to make it look a little prettier
     # I just made these up
     page_margins = {"left": "0in", "right": "0in", "top": "0mm", "bottom": "0in"}
     await page.pdf({"path": pdf_file, "margin": page_margins})
     await browser.close() 
 
-class MaaPDF(object):
+'''class MaaPDF(object):
     jours = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
 
     def set_header(self, text, can):
@@ -304,7 +336,7 @@ class MaaPDF(object):
         can.rect(self.convX(55), self.convYR(168), self.convX(627), self.convY(28),  fill=1)
 
         return can
-
+'''
 
     
     

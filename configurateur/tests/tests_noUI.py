@@ -3,6 +3,9 @@ from unittest.mock import patch
 
 from django.test import TestCase
 from django.test import LiveServerTestCase, RequestFactory
+from django.contrib.auth.models import User, Group, Permission
+
+from configurateur.models import AutorisedMAAs, Region, Station, ConfigMAA
 
 # Create your tests here.
 class ConfigurateurTestCase(TestCase):
@@ -79,3 +82,46 @@ class ConfigurateurTestCase(TestCase):
         self.assertEqual(ouverture, datetime.time(6,0,0))
         self.assertEqual(fermeture, datetime.time(17,15,0))
         
+class InitiateurTestCase(TestCase):
+    """ Cette classe test va permettre de tester l'initialisation des données via la toolbox """
+    
+    @classmethod
+    def setUpClass(cls):
+        """  """
+        from configurateur.initiate_toolbox.initiate_db_tools import Initiate
+        super().setUpClass()
+        init = Initiate()
+        init.create_region()
+        init.create_group_and_permissions()
+        init.create_users()
+        init.create_stations()
+        init.create_full_configmaa()
+        
+    def test_import_for_test(self):
+        """ Test une itialisation complète à partir des données de test (box_test) """
+        from django.contrib.auth import login, authenticate
+        from django.test import Client
+
+        #Check régions
+        self.assertEqual(len(Region.objects.all()), 3)
+
+        # Check Groupes
+        self.assertEqual(len(Group.objects.all()), 4)
+
+        # Check utilisateurs
+        self.assertEqual(len(User.objects.all()), 4)
+
+        # Check configmaa
+        self.assertEqual(len(ConfigMAA.objects.filter(station__oaci = "AAAA")), len(AutorisedMAAs.autorised)) 
+        configmaa = ConfigMAA.objects.get(station__oaci = "AAAA", type_maa= 'TS')
+        self.assertEqual(configmaa.pause, 2) 
+        self.assertEqual(configmaa.scan, 3)
+        self.assertEqual(configmaa.profondeur, 12)  
+        
+
+        
+
+
+
+
+

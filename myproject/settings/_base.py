@@ -50,7 +50,7 @@ REMOTE_CDPQ_OM = 'http://nihoa-v27b.meteo.fr/cdp1/om_q?'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '*']
 
 
 # Application definition
@@ -181,7 +181,7 @@ STATIC_URL = f'/static/{static_version}/'
 
 STATIC_ROOT = Path(BASE_DIR).joinpath('static')
 STATICFILES_DIRS = [
-	Path(BASE_DIR).joinpath('myproject').joinpath('site_static'),
+    Path(BASE_DIR).joinpath('myproject').joinpath('site_static'),
 ]
 MEDIA_ROOT = Path(BASE_DIR).joinpath('media')
 MEDIA_URL = '/media/'
@@ -210,3 +210,10 @@ MAGAZINE_ARTICLE_THEME_CHOICES = [
 
 LOGIN_URL = '/accounts/login/'
 #LOGOUT_REDIRECT_URL='/web/accounts/login/'
+
+RUNNING_SERVER = None # Pour la création des pdf à la volée. Nécessité de connaître le nom de domaine
+if 'manage.py' in sys.argv and len(sys.argv)>2:
+    RUNNING_SERVER = "http://" + sys.argv[2]
+
+
+

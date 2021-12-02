@@ -17,6 +17,7 @@ class ProductMAA(DetailView):
     Pour test avec température :
 
     """
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
@@ -27,14 +28,28 @@ class ProductMAA(DetailView):
             data = json.loads(context['envoimaa'].data_vent)
             station = context['envoimaa'].configmaa.station
             # On reconstitue une série avec les formats nécessaires au  template :
-            other = []
-            for echeance, (ff, fx, dd) in data:
-                other.append({  "echeance": datetime.strptime(echeance, "%Y-%m-%d %H:%M:%S"), 
-                                "ff": station.get_wind_with_station_unit(ff),
-                                "fx": station.get_wind_with_station_unit(fx),
-                                "dd": dd
-                })
-            context["data_vent"] = other
+            echeances = []
+            ffs = []
+            fxs = []
+            context['wind_unit'] = 'kt'
+            for echeance, (ffkt, fxkt, dd) in data:
+                echeances.append(datetime.strptime(echeance, "%Y-%m-%d %H:%M:%S"))
+                ff, (tag, label) = station.get_wind_with_station_unit(ffkt)
+                if dd == 998 and ffkt <=3:
+                    ff = 0.1
+                ffs.append("[{},{}]".format(ff, dd))
+                context['wind_unit'] = label
+                fx, (tag, label) = station.get_wind_with_station_unit(fxkt)
+                if dd == 998 and fxkt <=3:
+                    fx=0.1
+                fxs.append(str(float(fx)))
+
+            first = echeances[0]
+            context["first_echeance"] = "{},{},{},{}".format(first.year, first.month, first.day, first.hour) 
+            context["ff"] = ",".join([ ff for ff in ffs])
+            context["fx"] = ",".join([ fx for fx in fxs])
+
+            
 
         if context['envoimaa'].data_tempe:
             # On a des données tempé, on va faire en sourte de préparer les données pour le template
@@ -51,4 +66,5 @@ class ProductMAA(DetailView):
             context["echeances"] = ",".join(echeances)
             context["temperatures"] = ",".join(values)
             context["seuil"] = str(context['envoimaa'].configmaa.seuil)
+
         return context

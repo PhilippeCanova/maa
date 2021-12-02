@@ -2,15 +2,17 @@
     Ce module permet de réunir les outils de production des MAA (autos ou manuels), c'est à dire le PDF, les corps de mail, les messages brutes...
 """
 from datetime import datetime, time, timedelta
-import os
+import os, json
 from pathlib import Path
 import tempfile
+import asyncio
 
 from django.core.files.temp import NamedTemporaryFile
 from django.core.files import File
+from django.urls import reverse
 
 from analyseur.models import EnvoiMAA
-from producteur.pdf_tools import MaaPDF
+from producteur.pdf_tools import create_MAA_pdf_from_envoimaa
 from configurateur.models import AutorisedMAAs
 
 def definie_numero_maa(oaci, date):
@@ -19,7 +21,6 @@ def definie_numero_maa(oaci, date):
         Il n'est pas dépendant du type de maa. 1 MAA TS + 1 MAA VENT => 3 pour le nouveau
     """
     last = EnvoiMAA.objects.last_MAA(oaci, date)
-    print(last)
     if last is None:
         return 1
     return last.numero + 1
@@ -50,6 +51,44 @@ def define_fcst(provider, production, debut, configmaa):
             if origine > debut:
                 fcst = "OBS"
     return fcst
+
+def decoupe_supplement(trunk):
+    """ permet de morcelé le bloc supplément en tronçons de 70 caractères au plus 
+        retourne le nouveau trunk et la chaîne restante (None si plus rien)
+    """ 
+    nouveau= trunk.strip()
+    restant = None
+    if len(trunk) > 70:
+        pos = trunk.find('\n')
+        if pos >= 0 and pos <=70:
+            return trunk[:pos].strip(), trunk[pos+1:].strip()  
+
+        pos = trunk.rfind(" ", 0, 70)
+        if pos == -1: # Pas d'espace, on coupe arbitrairement
+            nouveau = trunk[:70]
+            restant = trunk[70:].strip()
+        else:
+            nouveau = trunk[:pos]
+            restant = trunk[pos:].strip()
+        if len(restant.strip()) == 0:
+            restant = None
+    return nouveau.strip(), restant
+
+def adapte_supplement(supplement):
+    """ Pour être sûr de ne pas avoir de problème avec le format TAC et Transmet, les suppléments de prévision
+        sont coupés et mis sur plusieurs lignes pour que chaque ligne ne dépasse pas 70 caractères 
+        Au max, on tolère 3 lignes au plus. Si des caractère \n sont déjà dans la chaîne, il génère eux-même une ligne
+        Tous les caractères sont capitalisés. 
+
+        Le retour est un chaîne de cractères avec les \n au bon endroit.    
+    """
+    reponse = []
+    supplement = supplement.upper()
+    ligne = 0
+    while len(reponse) < 3 and supplement is not None:
+        nouveau, supplement = decoupe_supplement(supplement)
+        reponse.append(nouveau)
+    return "\n".join(reponse)
 
 def create_raw_message(configmaa, numero, date_debut, date_fin, fcst, supplement=None, valeur_neige=None):
     """ Permet de synthétiser un message MAA brute qui sera envoyé à Transmet (entre autre)
@@ -106,15 +145,15 @@ def create_raw_message(configmaa, numero, date_debut, date_fin, fcst, supplement
         message = message + configmaa.type_maa.replace('_', ' ') 
     else:
         message = message + configmaa.type_maa
-    message = message + " {}\n".format(fcst)
+    message = message + " {}".format(fcst)
 
     # Ajout d'un supplément (quand manuel)
     if supplement is not None:
-        message = message + "{} \n".format(supplement)
+        message = message + "\n{}".format(adapte_supplement(supplement))
 
     # Indication de fermeture du service
     if configmaa.station.ouverture != time(0,0) or configmaa.station.fermeture != time(23,59):
-        message = message + "NO WARNING BETWEEN {} AND {}\n".format(  time.strftime(configmaa.station.fermeture, "%H:%M"), \
+        message = message + "\nNO WARNING BETWEEN {} AND {}".format(  time.strftime(configmaa.station.fermeture, "%H:%M"), \
                                                                     time.strftime(configmaa.station.ouverture, "%H:%M")) 
 
     message = message + "="
@@ -181,8 +220,8 @@ def create_description(configmaa, fcst):
         return ''
     
     if typemaa in ['VENT_MOY', 'VENT']:
-        seuil, unite = configmaa.get_seuil_unit()
-        return maa.get_description(fcst, seuil, at, force_unit=unite)
+        unite, seuil = configmaa.get_seuil_unit()
+        return maa.get_description(fcst, int(seuil), at, force_unit=unite)
     
     else:
         return maa.get_description(fcst, None, at)
@@ -196,34 +235,43 @@ def create_description_cnl(maa_precedent):
         label = "Annulation du MAA numéro {} valable du {} au {} UTC.".format(maa_precedent.numero, debut, fin)
         return label
 
+def create_data_vent(provider, configmaa, heure_production):
+    """ Permet de collecter les données de vent nécessaires pour la création du graphique du PDF
+        Evidemment, cela n'a d'intérêt que pour les MAA de type vent. Sinon retourne juste ''
+    """
+    if configmaa.type_maa not in ['VENT', 'VENT_MOY']:
+        return ''
+
+    data= []
+    # (echeance, (ff,fx,dd))
+    oaci = configmaa.station.oaci
+    for i in range(0, 24):
+        echeance = heure_production + timedelta(hours=i)
+        vents = provider.get_vent(oaci, echeance)
+        data.append( (datetime.strftime(echeance,"%Y-%m-%d %H:%M:%S"), vents )  )
+    data= json.dumps(data)
+    return data
+
+def create_data_tempe(provider, configmaa, heure_production):
+    """ Permet de collecter les données de température nécessaires pour la création du graphique du PDF
+        Evidemment, cela n'a d'intérêt que pour les MAA de type Tempé. Sinon retourne juste ''
+    """
+    if configmaa.type_maa not in ['TMAX', 'TMIN']:
+        return ''
+        
+    data= []
+    # (echeance, (ff,fx,dd))
+    oaci = configmaa.station.oaci
+    for i in range(0, 24):
+        echeance = heure_production + timedelta(hours=i)
+        tempe = provider.get_tempe(oaci, echeance)
+        data.append( (datetime.strftime(echeance,"%Y-%m-%d %H:%M:%S"), tempe) )
+    data= json.dumps(data)
+    return data
+
 #TODO: les 4 fonction ci-dessous mériteraient d'être refactorisées
-def create_maa_auto(log, provider, configmaa, heure_production, date_debut, date_fin, num_groupe, total_groupe):
+def create_maa_auto(log, provider, configmaa, heure_production, date_debut, date_fin, num_groupe=1, total_groupe=1):
     """ Fonction prenant en charge la création d'un MAA auto à partir des données transmis par l'analyse 15mn 
-    
-    Le modèle EnvoiMaa se compose de : 
-    configmaa = models.ForeignKey(ConfigMAA, on_delete=models.CASCADE, null=False)
-    date_envoi = models.DateTimeField(null=False)
-    date_debut = models.DateTimeField(null=False)
-    date_fin = models.DateTimeField(null=False)
-    numero = models.IntegerField(null=False)
-    message = models.TextField(null=False)
-    fcst = models.BooleanField(null=False, default=True)
-    status = models.CharField(max_length=10, editable=False, null=False, default='new', choices = CHOICES_STATUS)
-    context_TAF = models.TextField(null=True, blank=True)
-    context_CDPH = models.TextField(null=True, blank=True)
-    context_CDPQ = models.TextField(null=True, blank=True)
-    log = models.TextField(null=True, blank=True)
-    message_mail = models.TextField(null=True, blank=True)
-    message_pdf = models.FileField(upload_to='uploads/%Y/%m/%d/', null=True, blank=True)
-    message_sms = models.TextField(null=True, blank=True)
-    
-    Il faut donc encore :
-        X déterminer le numéro de MAA
-        X rédiger le message brute
-        / créer le document PDF
-        X figer les contexts 
-        / implémenter les médium
-        / mettre à jour le log
 
     Comme c'est une production automatique, on va générer directement le PDF est indiquer un status = ti_send.
     """
@@ -238,12 +286,15 @@ def create_maa_auto(log, provider, configmaa, heure_production, date_debut, date
 
     # Rédige le message brute
     fcst = define_fcst(provider, heure_production, date_debut, configmaa) 
-
+    
     # Formate les messages
     description = create_description(configmaa, fcst)
     message_brute = create_raw_message(configmaa, numero, date_debut, date_fin, fcst)
     message_sms = "METEO-FRANCE MAA {}".format(message_brute.replace("\n", " "))
     message_mail = define_mail_content()
+    
+    data_vent = create_data_vent(provider, configmaa, heure_production)
+    data_tempe = create_data_tempe(provider, configmaa, heure_production)
 
     # Crée l'instance d'envoiMAA
     try:
@@ -263,28 +314,14 @@ def create_maa_auto(log, provider, configmaa, heure_production, date_debut, date
             log = log,
             message_mail = message_mail,
             message_sms = message_sms,
-            entete_transmet = configmaa.station.entete + " " + datetime.strftime(heure_production, "%d%H%M")
+            entete_transmet = configmaa.station.entete + " " + datetime.strftime(heure_production, "%d%H%M"),
+            data_vent = data_vent,
+            data_tempe = data_tempe,
         )
 
+        pdf_temp = None
         try:
-            base_dir = Path(__file__).parent
-            name = "MAA_{}_{}_{}.pdf".format(configmaa.station.oaci, configmaa.type_maa, configmaa.seuil)
-            pdf = str(base_dir.joinpath("tmp").joinpath(name).absolute())
-            #tmp = tempfile.SpooledTemporaryFile() 
-            #TODO: il y a sans doute moyen de passer par un fichier temporaire en mémoire
-
-            # On est dans un cas de MAA auto, donc s'il y a un MAA de vent ou de température, on doit être 
-            # capable de faire un atom en fin de page 
-            data=None
-            #param_avec_atmo = ['VENT_MOY', 'VENT', 'TMIN', 'TMAX']
-            param_avec_atmo = ['VENT_MOY', 'VENT'] #TODO: gérer aussi les températures
-            if configmaa.type_maa in param_avec_atmo and not configmaa.station.outremer:
-                data=get_data_atmo(provider, envoi)
-
-            MaaPDF(pdf, envoi, data)
-
-            with open(pdf, 'rb') as f:
-                envoi.message_pdf.save(name, File(f))
+            envoi, pdf_temp = create_MAA_pdf_from_envoimaa(envoi)
 
         except Exception as e:
             log = log + "\n" + "{}: Impossible de créer le PDF pour le MAA.".format(datetime.utcnow())
@@ -296,7 +333,7 @@ def create_maa_auto(log, provider, configmaa, heure_production, date_debut, date
         envoi.status = ('to_send', 'Nouveau')
         envoi.log = log
         envoi.save()
-        if pdf: os.remove(pdf)
+        if pdf_temp: os.remove(pdf_temp)
         
     except Exception as e:
         log = "\n" + "{}: Création de l'objet EnvoiMAA impossible.".format(datetime.utcnow())
@@ -337,7 +374,7 @@ def create_cnl_maa_auto(log, provider, configmaa, heure_production, num_groupe, 
             message = message_brute,
             description_maa = description,
             fcst = False,
-            status = ('to_create', 'A créer'),
+            status = 'to_create',
             cancel=True,
             context_TAF = context_TAF, 
         context_CDPH = context_CDP,
@@ -348,21 +385,9 @@ def create_cnl_maa_auto(log, provider, configmaa, heure_production, num_groupe, 
         entete_transmet = configmaa.station.entete + " " + datetime.strftime(heure_production, "%d%H%M")
         )
 
+        pdf_temp = None
         try:
-            base_dir = Path(__file__).parent
-            name = "MAA_CNL_{}_{}_{}.pdf".format(configmaa.station.oaci, configmaa.type_maa, configmaa.seuil)
-            pdf = str(base_dir.joinpath("tmp").joinpath(name).absolute())
-            #tmp = tempfile.SpooledTemporaryFile() 
-            #TODO: il y a sans doute moyen de passer par un fichier temporaire en mémoire
-
-            # On est dans un cas de MAA auto, donc s'il y a un MAA de vent ou de température, on doit être 
-            # capable de faire un atom en fin de page 
-            data=None
-            MaaPDF(pdf, envoi, data, True) # Le True indique que c'est un CNL
-
-            with open(pdf, 'rb') as f:
-                envoi.message_pdf.save(name, File(f))
-
+            envoi, pdf_temp = create_MAA_pdf_from_envoimaa(envoi)
         except Exception as e:
             log = log + "\n" + "{}: Impossible de créer le PDF pour l'annulation de MAA.".format(datetime.utcnow())
             log = log + "\n" + "{} - {}".format(configmaa, numero)
@@ -370,10 +395,10 @@ def create_cnl_maa_auto(log, provider, configmaa, heure_production, num_groupe, 
             pdf = None
             print(log)
 
-        envoi.status = ('to_send', 'Nouveau')
+        envoi.status = 'to_send'
         envoi.log = log
         envoi.save()
-        if pdf: os.remove(pdf)
+        if pdf_temp: os.remove(pdf_temp)
         
     except Exception as e:
         log = "\n" + "{}: Création de l'objet EnvoiMAA impossible.".format(datetime.utcnow())
@@ -413,7 +438,7 @@ def create_cnl_maa_manuel(log, configmaa, DATE_NOW, maa_en_cours):
             message = message_brute,
             description_maa = description,
             fcst = False,
-            status = ('to_create', 'A créer'),
+            status = 'to_create',
             context_TAF = context_TAF, 
             cancel = True,
         context_CDPH = context_CDP,
@@ -424,20 +449,9 @@ def create_cnl_maa_manuel(log, configmaa, DATE_NOW, maa_en_cours):
         entete_transmet = configmaa.station.entete + " " + datetime.strftime(DATE_NOW, "%d%H%M")
         )
 
+        pdf_temp = None
         try:
-            base_dir = Path(__file__).parent
-            name = "MAA_manuel_CNL_{}_{}_{}.pdf".format(configmaa.station.oaci, configmaa.type_maa, configmaa.seuil)
-            pdf = str(base_dir.joinpath("tmp").joinpath(name).absolute())
-            #tmp = tempfile.SpooledTemporaryFile() 
-            #TODO: il y a sans doute moyen de passer par un fichier temporaire en mémoire
-
-            # On est dans un cas de MAA auto, donc s'il y a un MAA de vent ou de température, on doit être 
-            # capable de faire un atom en fin de page 
-            data=None
-            MaaPDF(pdf, envoi, data, True)
-
-            with open(pdf, 'rb') as f:
-                envoi.message_pdf.save(name, File(f))
+            envoi, pdf_temp = create_MAA_pdf_from_envoimaa(envoi)
 
         except Exception as e:
             log = log + "\n" + "{}: Impossible de créer le PDF pour l'annulation de MAA.".format(datetime.utcnow())
@@ -447,10 +461,10 @@ def create_cnl_maa_manuel(log, configmaa, DATE_NOW, maa_en_cours):
             print(log)
             raise SystemError("Impossible de créer le PDF pour l'annulation du MAA suivant : {} à {}".format(configmaa, datetime.utcnow()))
 
-        envoi.status = ('to_send', 'Nouveau')
+        envoi.status = 'to_send'
         envoi.log = log
         envoi.save()
-        if pdf: os.remove(pdf)
+        if pdf_temp: os.remove(pdf_temp)
         return envoi
 
     except Exception as e:
@@ -458,8 +472,7 @@ def create_cnl_maa_manuel(log, configmaa, DATE_NOW, maa_en_cours):
         log = "\n" + "{} - {}".format(configmaa, numero)
         print(log)
         raise SystemError("Impossible d'annuler manuellement le MAA suivant : {} à {}".format(configmaa, datetime.utcnow()))
-    return None
-
+    
 def create_maa_manuel(log, configmaa, date_envoi, debut, fin, fcst, supplement=None):
     """ Permet d'ajouter une instance de EnvoiMAA suite à la demande d'un set_maa (manuel) 
         L'implémentation est à minima. Elle sera complétée par un cron recherchant les états to_create
@@ -487,32 +500,21 @@ def create_maa_manuel(log, configmaa, date_envoi, debut, fin, fcst, supplement=N
 
         envoi.save()
 
+        pdf_temp = None
         try:
-            base_dir = Path(__file__).parent
-            name = "MAA_manuel_{}_{}_{}.pdf".format(configmaa.station.oaci, configmaa.type_maa, configmaa.seuil)
-            pdf = str(base_dir.joinpath("tmp").joinpath(name).absolute())
-            #tmp = tempfile.SpooledTemporaryFile() 
-            #TODO: il y a sans doute moyen de passer par un fichier temporaire en mémoire
-
-            # On est dans un cas de MAA auto, donc s'il y a un MAA de vent ou de température, on doit être 
-            # capable de faire un atom en fin de page 
-            data=None # Manuel, donc pas de données à customiser.
-            MaaPDF(pdf, envoi, data)
-
-            with open(pdf, 'rb') as f:
-                envoi.message_pdf.save(name, File(f))
+            envoi, pdf_temp = create_MAA_pdf_from_envoimaa(envoi)
 
         except Exception as e:
             log = log + "\n" + "{}: Impossible de créer le PDF pour le MAA.".format(datetime.utcnow())
-            log = log + "\n" + "{} - {} - {} - {}".format(configmaa, date_debut, date_fin, numero)
+            log = log + "\n" + "{} - {} - {} - {}".format(configmaa, debut, fin, numero)
             log = log + "\n" + str(e)            
-            pdf = None
+            pdf_temp = None
             print(log)
 
-        envoi.status = ('to_send', 'Nouveau')
+        envoi.status = 'to_send'
         envoi.log = log
         envoi.save()
-        if pdf: os.remove(pdf)
+        if pdf_temp: os.remove(pdf_temp)
         return envoi
 
     except Exception as e:

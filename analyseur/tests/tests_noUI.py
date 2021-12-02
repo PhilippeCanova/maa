@@ -447,7 +447,31 @@ class AnalyseData_TestCase(TestCase):
         analyse_15mn(NOW)
 
         # TODO: Vérifie la présence des MAA en base
-        
+
+    def test_adapte_supplement(self):
+        from analyseur.production import adapte_supplement
+
+        supplement = " Test court"
+        self.assertEqual(adapte_supplement(supplement), "TEST COURT")   
+
+        supplement = "1234567891123456789212345678931234567894123456789512345678961234567897123"
+        self.assertEqual(adapte_supplement(supplement), "1234567891123456789212345678931234567894123456789512345678961234567897\n123")   
+
+        supplement = "123456789 123456789 123456789 123456789 123456789 123456789 1234567897123"
+        self.assertEqual(adapte_supplement(supplement), "123456789 123456789 123456789 123456789 123456789 123456789\n1234567897123")   
+
+        supplement = "Ne mangez rien ou jeuner, voilà bien votre grande bêtise. A vaincre sans péril, on triomphe sans gloire. Que trépasse si faiblis."
+        reponse_attendue = "Ne mangez rien ou jeuner, voilà bien votre grande bêtise. A vaincre\nsans péril, on triomphe sans gloire. Que trépasse si faiblis.".upper()
+        self.assertEqual(adapte_supplement(supplement), reponse_attendue)   
+
+        supplement = "Ne mangez rien ou jeuner, voilà bien votre grande bêtise. A vaincre sans péril, on triomphe sans gloire. Que trépasse si faiblis. Un tu l'as vaut mieux que 2 tu l'auras. Sur le pont d'Avignon, on y danse on y danse... Maître renard, sur un arbre perché, tenait son bec un fromage. Maître Renard, par l'odeur alléché, lui tint à peu près ce language."
+        reponse_attendue = "Ne mangez rien ou jeuner, voilà bien votre grande bêtise. A vaincre\nsans péril, on triomphe sans gloire. Que trépasse si faiblis. Un tu\nl'as vaut mieux que 2 tu l'auras. Sur le pont d'Avignon, on y danse".upper()
+        self.assertEqual(adapte_supplement(supplement), reponse_attendue)   
+
+        supplement = "Ne mangez rien ou jeuner\nvoilà bien votre grande bêtise.\nA vaincre sans péril, on triomphe sans gloire. Que trépasse si faiblis. Un tu l'as vaut mieux que 2 tu l'auras. Sur le pont d'Avignon, on y danse on y danse... Maître renard, sur un arbre perché, tenait son bec un fromage. Maître Renard, par l'odeur alléché, lui tint à peu près ce language."
+        reponse_attendue = "Ne mangez rien ou jeuner\nvoilà bien votre grande bêtise.\nA vaincre sans péril, on triomphe sans gloire. Que trépasse si".upper()
+        self.assertEqual(adapte_supplement(supplement), reponse_attendue)   
+
 
 
 

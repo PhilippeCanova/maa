@@ -27,7 +27,7 @@ class SetManuelMAA(View):
     USAGES = {
         'set_maa': {
             'usage': "maa_config.php?action=set_maa&station=LFRN&type_maa=VENT&seuil=10&date_debut=2016-05-12 13:59:00&date_fin=2016-05-12 25:59:00&message=supplement libre du previ&fcst=FCST|OBS|OBSANDFCST|",
-            'description': """Tous les parametres sont obligatoires, cette fonction permet de forcer l'envoi d'un maa manuel et force le systeme a rester en mode manuel jusqu'a la fin du maa. Le parametre format peut prendre la valeur json ou xml (xml par défaut).""",
+            'description': """Tous les parametres sont obligatoires, cette fonction permet de forcer l'envoi d'un maa manuel. Le parametre format peut prendre la valeur json ou xml (xml par défaut).""",
         },
         'unset_maa': {
             'usage': "maa_config.php?action=unset_maa&station=LFRN&type_maa=VENT&seuil=10",
@@ -200,7 +200,7 @@ class SetManuelMAA(View):
         limite_debut = DATE_NOW + timedelta(hours=configmaa.scan)
         debut = datetime.strptime(request.GET.get('date_debut'), SetManuelMAA.FORMAT_DATE)
         fin = datetime.strptime(request.GET.get('date_fin'), SetManuelMAA.FORMAT_DATE)
-        if debut > limite_debut:
+        if debut > limite_debut or debut < DATE_NOW - timedelta(minutes=30):
             return self.set_response_error("Pour respecter la configuration de la station {oaci} la date de début du maa doit se situer entre {now} et {limite}.".format(
                 oaci = station.oaci, now = DATE_NOW, limite = limite_debut))
         
@@ -261,6 +261,7 @@ class SetManuelMAA(View):
         try:
             log = "Annulation manuelle d'un MAA. Heure de saisie : {}".format(datetime.utcnow())
             envoi = create_cnl_maa_manuel(log, configmaa, DATE_NOW, maa_en_cours)
+            print('Annulation enregistrée', envoi)
             # Tout s'est déroulé correctement, on retourne l'acquitement avec le message brute
             return self.set_response_ok(envoi)
         except SystemError as e:
@@ -343,6 +344,9 @@ class SetManuelMAA(View):
             #current_maas_by_type(oaci, type_maa, heure= datetime.utcnow(), seuil=None)
             configs = []
             maas = []
+            query = ConfigMAA.objects.filter(station__oaci = station)
+            if len(query) == 0:
+                continue # La station n'est pas reconnue, on ne la traite pas
             for config in ConfigMAA.objects.filter(station__oaci = station):
                 configs.append(config)
                 maa = EnvoiMAA.current_maas_by_type(station, config.type_maa, UTC_NOW, config.seuil)

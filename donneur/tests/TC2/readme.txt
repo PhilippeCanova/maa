@@ -1,25 +1,25 @@
 Jeu de tests conçu pour vérifier le report des becmg, tempo, prob40 et prob40tempo
 
 Test WW :
-TEMPO N/M => report WW à M inclus (cf LFRB)
-PROB40 TEMPO N/M => report WW à M inclus (cf LFRB)
-BECMG N/M => WW dès N (cf LFBE)
+TEMPO N/M => report WW à M inclus (cf LFRB-DDDD)
+PROB40 TEMPO N/M => report WW à M inclus (cf LFRB-DDDD)
+BECMG N/M => WW dès N (cf LFBE-EEEE)
 
 # Test visi :
-BECMG N/M => report phéno précédent jusqu'à M inclus (cf LFBE)
-TEMPO N/M => report de la visi jusqu'à M inclus (cl LFOB)
-PROB40 TEMPO N/M => report de la visi jusqu'à M inclus (cl LFRD)
+BECMG N/M => report phéno précédent jusqu'à M inclus (cf LFBE-EEEE)
+TEMPO N/M => report de la visi jusqu'à M inclus (cl LFOB-HHHH)
+PROB40 TEMPO N/M => report de la visi jusqu'à M inclus (cl LFRD-IIII)
 
 # Test vent :
-PROB40 TEMPO N/M => report du FX jusqu'à M inclus (cl LFRD)
-PROB40 TEMPO N/M => report du FF jusqu'à M inclus (cl LFRD)
-TEMPO N/M => report du FF jusqu'à M inclus (cl LFTH)
-TEMPO N/M => report du FX jusqu'à M inclus (cl LFTH)
+PROB40 TEMPO N/M => report du FX jusqu'à M inclus (cl LFRD-IIII)
+PROB40 TEMPO N/M => report du FF jusqu'à M inclus (cl LFRD-IIII)
+TEMPO N/M => report du FF jusqu'à M inclus (cl LFTH-JJJJ)
+TEMPO N/M => report du FX jusqu'à M inclus (cl LFTH-JJJJ)
 
 
 Test parametre supp :
-# Test Si GR => ajoute GS (cf LFCR)
-Si FZFG => ajoute FG (cf LFBI)
+# Test Si GR => ajoute GS (cf LFCR-GGGG)
+Si FZFG => ajoute FG (cf LFBI-FFFF)
 
 
 ## Collectifs de TAF

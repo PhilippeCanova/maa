@@ -100,7 +100,7 @@ def analyse_15mn(heure_analyse=datetime.utcnow()):
     # Met à jour les heures d'ouverture et de fermeture
     chek_and_change_pivot_date() 
 
-    # Récupère la liste des stations en cours de production
+    # Récupère un queryset des stations en cours de production
     stations = define_open_airport(heure_analyse)
 
     manager_cdp = provide_manager(stations)

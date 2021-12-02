@@ -14,6 +14,8 @@ from django.conf import settings
 
 PROXY_METEO = "http://proxy.meteo.fr:11011"
 
+''' Non utile car charge séparément la métropole et l'outre-mer directement dans le provide_manager
+à vérifier si on peut supprimer
 def retrieveDatas(stations = None):
     """ Fonction allant chercher les données aéro et cdp d'une liste de stations.
     La liste représente une liste de tuple (code oaci=>str, code insee=>str, outremer=>bool) 
@@ -26,15 +28,18 @@ def retrieveDatas(stations = None):
     stations_datas_cdpq = {} # Stoques les infos récupérées pour chaque station dans le cdpq
 
     # Récupération des données cdph
-    stations_datas_cdph.update(retrieveDatasCDPH(stations))
+    stations_datas_cdph.update(retrieveDatasCDPH_metropole(stations))
 
     # Récupération des données cdpq
-    stations_datas_cdpq.update(retrieveDatasCDPQ(stations))
+    stations_datas_cdpq.update(retrieveDatasCDPQ_metropole(stations))
 
     # Récupération des données aéro
     stations_datas_aero.update(retrieveDatasAero(stations))
 
     return stations_datas_aero, stations_datas_cdph, stations_datas_cdpq
+'''
+class RetrieveData(object):
+    pass
 
 def request_data_cdp(url):
     """ Va chercher les données sur le SA CDP Aéro"""
@@ -59,15 +64,14 @@ def retrieveDatasAero(stations = None):
     
     Retourne un dictionnaire { oaci: [lignes récupérées] }
     """
-    #http://nihoa-v27b.meteo.fr/cdp1/aerop?dpivot=-3,48&ordre=dvalid&cond=(typeprev=0)%20and%20(DateEmissionTAF!=%27%27)&format=csv&param=id,typeprev,dvalid,idoaci,DateEmissionTAF,visi,visiprob40,VisibiliteTempo,VisibiliteProb40Tempo,ddtaf,DDTAFTempo,DDTAFProb40,DDTAFProb40Tempo,FFTAF,FFTAFTempo,FFTAFProb40,FFTAFProb40Tempo,FXTAF,FXTAFTempo,FXTAFProb40,FXTAFProb40Tempo,wwTAF,wwTAFTempo,wwTAFProb40,wwTAFProb40Tempo&id=9552761
-
+    #http://nihoa-v27b.meteo.fr/cdp1/aerop?dpivot=-3,48&format=csv&param=idoaci,id,typeprev,dvalid,DateEmissionTAF,visi,visiprob40,VisibiliteTempo,VisibiliteProb40Tempo,ddtaf,DDTAFTempo,DDTAFProb40,DDTAFProb40Tempo,FFTAF,FFTAFTempo,FFTAFProb40,FFTAFProb40Tempo,FXTAF,FXTAFTempo,FXTAFProb40,FXTAFProb40Tempo,wwTAF,wwTAFTempo,wwTAFProb40,wwTAFProb40Tempo&id=6929961&ordre=dvalid&cond=(typeprev=0)%20and%20(DateEmissionTAF!=%27%27)
     reponse = {}
     remote_url = settings.REMOTE_CDPAERO
     parametres = {}
     parametres['dpivot'] = "-3,48"  # Permet de faire la demande sur -3h à 48h 
     parametres['format'] = 'csv'    # Réponse du SA CDP en csv 
     parametres['param'] = ','.join(AeroDataHoraire.PARAMETRES_CDP_AERO)
-    #parametres['id'] = ",".join([insee for oaci, insee, om in stations])
+    parametres['id'] = ",".join([insee for oaci, insee, om in stations])
     parametres['ordre'] = 'dvalid'
     parametres['cond']="(typeprev=0)%20and%20(DateEmissionTAF!=%27%27)"
     
@@ -83,13 +87,13 @@ def retrieveDatasAero(stations = None):
     # Split la réponse en différentes lignes et range par Station
     if lignes is not None:
         lignes = lignes.split('\n')
+        
         for ligne in lignes[1:]: # Evince la première ligne qui est le nombre de lignes de la réponse SA CDP
             ligne = ligne.strip()
             if ligne != str(''):
                 oaci = ligne[:4]
                 if oaci in stations:
                     reponse.setdefault(oaci, []).append(ligne)
-
     return reponse
 
 '''def retrieveDatasCDPH(stations = None):
@@ -138,7 +142,6 @@ def retrieveDatasCDPH_metropole(stations = None):
     &dpivot=-48,60
     
     """
-
     reponse = {}
     remote_url = settings.REMOTE_CDPH
     parametres = {}
@@ -805,7 +808,7 @@ class CDPDataHoraire(object):
             Si non trouvé, retourne None
         """
         try:
-            if param in ['t', 'rr1', 'rr3', 'rr6', 'rr12', 'rr24','pneige']:
+            if param in ['t', 'tn_extreme', 'tx_extreme', 'rr1', 'rr3', 'rr6', 'rr12', 'rr24','pneige']:
                 return float(self.__dict__[param])
             if param in ['ff', 'fx', 'etatsol', 'dd']:
                 return int(self.__dict__[param]) 
@@ -813,6 +816,12 @@ class CDPDataHoraire(object):
         except:
             return None
     
+    def set_T_Extreme(self, T, nom_param):
+        """ Lors de la ventillation des données Q, si on trouve une extreme sur cette heure, 
+            On lui affecte la température ext quotidienne
+        """
+        self.__dict__[nom_param] = T
+
     def get_WW(self):
         return self.get_param('ww')
 
@@ -987,7 +996,6 @@ class CDPDataStation(object):
             # il faut reconstituer les cumuls rr3, rr6, rr12 et rr24
             self.ventille_RR()
 
-
     def affiche_donnees_station(self):
         """ A des fins de bug essentiellement, permet d'afficher les données contenues ce conteneur
         ordonné par dates croissantes """
@@ -1059,6 +1067,144 @@ class CDPDataStation(object):
         ech = sorted(self.echeances.keys())
         return [ self.echeances[key] for key in ech]
 
+    def define_plage_dates_tn(self, jour):
+        """ Definit a paartir du code insee d'une station et de la date d'un extremum, 
+            la liste des heures sur lesquelles l'extremum doit se produire """
+
+        indicatif = self.insee[:3]
+        date_pivot = jour
+        reponse = []
+        
+        if indicatif in ['971', '972']: # Antilles
+            date_min = date_pivot
+            #date_max = date_pivot + timedelta(hours= 23)
+
+        elif indicatif in ['9714', '985']: # Reunion, Mayotte
+            date_min = date_pivot - timedelta(hours= 9)
+            #date_max = date_pivot + timedelta(hours= 14)
+            
+        elif indicatif == '973': # Guyane 
+            date_min = date_pivot - timedelta(hours= 3)
+            #date_max = date_pivot + timedelta(hours= 20)
+            
+        elif indicatif == '987': # DIRPF 
+            date_min = date_pivot + timedelta(hours= 6)
+            #date_max = date_pivot + timedelta(hours= 29)
+            
+        elif indicatif == '988': # Nouvelle-Calédonie 
+            date_min = date_pivot - timedelta(hours= 11)
+            #date_max = date_pivot + timedelta(hours= 12)
+            
+        elif indicatif == '986': # W et F
+            date_min = date_pivot - timedelta(hours= 12)
+            #date_max = date_pivot + timedelta(hours= 11)
+            
+        elif indicatif == '975': # SPM
+            date_min = date_pivot - timedelta(hours= 3)
+            #date_max = date_pivot + timedelta(hours= 20)
+            
+        else: # Metropole
+            date_min = date_pivot - timedelta(hours= 6)
+            #date_max = date_pivot + timedelta(hours= 17)
+            
+        for i in range(0,24): # Etablit la liste des heures comprises entre les dates min et max
+            reponse.append(date_min + timedelta(hours=i))
+            
+        return reponse
+
+    def define_plage_dates_tx(self, jour):
+        """ Definit a partir du code insee d'une station et de la date d'un extremum, 
+            la liste des heures sur lesquelles l'extremum doit se produire """
+
+        indicatif = self.insee[:3]
+        date_pivot = jour 
+        reponse = []
+        
+        if indicatif in ['971', '972']: # Antilles
+            date_min = date_pivot + timedelta(hours= 12)
+            #date_max = date_pivot + timedelta(hours= 23)
+
+        elif indicatif in ['9714', '985']: # Reunion, Mayotte
+            date_min = date_pivot + timedelta(hours= 3)
+            #date_max = date_pivot + timedelta(hours= 14)
+            
+        elif indicatif == '973': # Guyane 
+            date_min = date_pivot + timedelta(hours= 9)
+            #date_max = date_pivot + timedelta(hours= 20)
+            
+        elif indicatif == '987': # DIRPF 
+            date_min = date_pivot + timedelta(hours= 18)
+            #date_max = date_pivot + timedelta(hours= 29)
+            
+        elif indicatif == '988': # Nouvelle-Calédonie 
+            date_min = date_pivot - timedelta(hours= 11)
+            #date_max = date_pivot + timedelta(hours= 12)
+            
+        elif indicatif == '986': # W et F
+            date_min = date_pivot - timedelta(hours= 12)
+            #date_max = date_pivot + timedelta(hours= 11)
+            
+        elif indicatif == '975': # SPM
+            date_min = date_pivot + timedelta(hours= 9)
+            #date_max = date_pivot + timedelta(hours= 20)
+            
+        else: # Metropole
+            date_min = date_pivot + timedelta(hours= 6)
+            #date_max = date_pivot + timedelta(hours= 17)
+            
+        for i in range(0,24): # Etablit la liste des heures comprises entre les dates min et max
+            reponse.append(date_min + timedelta(hours=i))
+            
+        return reponse
+
+    def ventille_Tn(self, Tn, date):
+        """ Permet de mettre la température extrème d'une journée sur la ligne horaire la plus probable """
+
+        # Determine la liste des heures de cette plage (variable selon la zone de la station outre-mer)
+        les_heures = self.define_plage_dates_tn(date)
+     
+        # Definit la temperature minimale parmi la plage horaire pour y affecter la temperature minimale quotidienne
+        tn = 2000
+        heure_tn = None
+        for l_heure in les_heures:
+            if l_heure is not None:
+                ligne_cdp = self.get_echeance(l_heure)
+                if ligne_cdp is None:
+                    # On n'a pas toute la série de donnée, une extrapolation de l'heure extreme serait idiote
+                    return 
+                t = ligne_cdp.get_param('t')
+                if t is not None and t <= tn:
+                    tn = t
+                    heure_tn = l_heure
+                
+        if heure_tn is not None:
+            ligne_cdp = self.get_echeance(heure_tn)
+            ligne_cdp.set_T_Extreme(Tn, 'tn_extreme')
+
+
+    def ventille_Tx(self, Tx, date):
+        """ Permet de mettre la température extrème d'une journée sur la ligne horaire la plus probable """
+        # Determine la liste des heures de cette plage (variable selon la zone de la station outre-mer)
+        les_heures = self.define_plage_dates_tx(date)
+     
+        # Definit la temperature minimale parmi la plage horaire pour y affecter la temperature minimale quotidienne
+        tx = -2000
+        heure_tx = None
+        for l_heure in les_heures:
+            if l_heure is not None:
+                ligne_cdp = self.get_echeance(l_heure)
+                if ligne_cdp is None:
+                    # On n'a pas toute la série de donnée, une extrapolation de l'heure extreme serait idiote
+                    return 
+                t = ligne_cdp.get_param('t')
+                if t is not None and t >= tx:
+                    tx = t
+                    heure_tx = l_heure
+                
+        if heure_tx is not None:
+            ligne_cdp = self.get_echeance(heure_tx)
+            ligne_cdp.set_T_Extreme(Tx, 'tx_extreme')
+
 class CDPDataStations(object):
     """ Stoque les données CDP H/Q horaires de toutes les stations """
     def __init__(self):
@@ -1073,11 +1219,25 @@ class CDPDataStations(object):
         for oaci, liste in conteneur.items():
             self.stations[oaci] = CDPDataStation(liste, outremer)
 
-    def load_daily_datas(self, contenur):
-        """ Cette fonction a pour but d'assimiler un conteneur de données quotidiennes 
+    def load_daily_datas(self, donneeQ, conteneur, outermer):
+        """ Cette fonction a pour but d'assimiler un conteneur donneeQ de données quotidiennes 
+
             Cela permet de rectifier les données de température en fonction des Tn/Tx
+            Ici le donneeQ est une instance {oaci: [lignes du ficjier cdpq]}
+            Dans le fichier cdpq, les échéances sont à 00TU. La période concernée par cette date dépend de la zone considérée
+
+            Les données ne sont pas stockées dans un nouveau conteneur mais directement traitées pour être ventillées dans les conteneurs data
         """
-        #TODO implémenter cette fonction
+        for oaci, liste_lignes in donneeQ.items():
+            data = conteneur.getStation(oaci)
+            if data is not None:
+                for ligne in liste_lignes:
+                    infos = ligne.split(";") 
+                    jour = dt.strptime(infos[1], '%Y-%m-%d %H:%M:%S')       
+                    tn = float(infos[3])
+                    data.ventille_Tn(tn, jour)
+                    tx = float(infos[4])
+                    data.ventille_Tx(tx, jour)
 
     def getStation(self, oaci):
         """ Retourne le conteneur de données d'une station particulière oaci"""
@@ -1132,9 +1292,17 @@ class ManagerData(object):
                 if type_maa == 'VENT_MOY':
                     return seuil <= data.get_mean_wind(), origine
                 if type_maa == 'TMIN':
-                    return seuil >= data.get_param('t'), origine
+                    Tretenue = data.get_param('t')
+                    Textreme = data.get_param('tn_extreme')
+                    if Textreme is not None:
+                        Tretenue = min(Tretenue, Textreme)
+                    return seuil >= Tretenue, origine
                 if type_maa == 'TMAX':
-                    return seuil <= data.get_param('t'), origine
+                    Tretenue = data.get_param('t')
+                    Textreme = data.get_param('tx_extreme')
+                    if Textreme is not None:
+                        Tretenue = max(Tretenue, Textreme)
+                    return seuil <= Tretenue, origine
                 if type_maa in ['RR1', 'RR3', 'RR6', 'RR12', 'RR24']:
                     return seuil <= data.get_param(type_maa.lower()), origine
                 if type_maa in ['TS','GR', 'SQ', 'FG', 'FZFG', 'FZRA', 'FZDZ']:
@@ -1234,26 +1402,28 @@ def provide_manager (stations):
         Le retour est une instance de ManagerData
     """
 
-    liste_station = []
-    for station in stations:
-        liste_station.append( ( station.oaci, station.inseepp, station.outremer) )
-
-    aeros = retrieveDatasAero(liste_station)
+    # Chargement des données Aéro
+    aeros = retrieveDatasAero([ (station.oaci, station.inseepp, station.outremer) for station in stations if not station.outremer])
     datas_aero = AeroDataStations()
     datas_aero.load_datas(aeros)
 
-    cdph = retrieveDatasCDPH_metropole( [(oaci, insee) for oaci, insee, om in liste_station if not om])
-    cdpq = retrieveDatasCDPQ_metropole ([(oaci, insee) for oaci, insee, om in liste_station if not om])
     datas = CDPDataStations()
+
+    # Chargement des données métropole
+    stations_metro = [ (station.oaci, station.inseepp) for station in stations if not station.outremer]
+    cdph = retrieveDatasCDPH_metropole( stations_metro)
+    cdpq = retrieveDatasCDPQ_metropole (stations_metro)
     datas.load_datas(cdph, False)
-    #datas.load_datas(cdpq, False) # Ajout des données quotidiennes pas encore implémenté
+    datas.load_daily_datas(cdpq, datas, False) # Ajout des données quotidiennes pas encore implémenté
+
+    # Chargement des données outre-mer
+    stations_om = [(station.oaci, station.inseepp) for station in stations if station.outremer]
+    cdph_om = retrieveDatasCDPH_om(stations_om)
+    cdpq_om = retrieveDatasCDPQ_om(stations_om)
+    datas.load_datas(cdph_om, True)
+    datas.load_daily_datas(cdpq_om, datas, True) # Ajout des données quotidiennes pas encore implémenté
         
     # Chargement dans l'assembleur. C'est lui qui va répondre au tests. 
     assembleur = ManagerData(datas_aero, datas)
 
     return assembleur
-
-
-
-if __name__ == '__main__':
-    print('hello')

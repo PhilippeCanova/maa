@@ -11,19 +11,17 @@ from django.shortcuts import resolve_url
 from django.urls import reverse, resolve
 from django.core.files import File
 from django.test import TestCase
-from django.test import LiveServerTestCase, RequestFactory
+from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.conf import settings
 
 
 from configurateur.models import Station, ConfigMAA
 from analyseur.models import EnvoiMAA
 from donneur.commons import AeroDataStations, CDPDataStations, ManagerData
-from donneur.commons import retrieveDatasCDPH_om, retrieveDatasCDPQ_om, retrieveDatasAero
-from donneur.commons import retrieveDatasCDPH_metropole, retrieveDatasCDPQ_metropole
-from producteur.pdf_tools import html_to_pdf
-
+from producteur.pdf_tools import create_MAA_pdf_from_envoimaa
 
 # Create your tests here.
-class MessageMAA_TestCase(LiveServerTestCase):
+class MessageMAA_TestCase(StaticLiveServerTestCase):
     @classmethod
     def setUpClass(cls):
         """ Utlisé pour une utilisation commune à toutes les fonctions test de cette clasee 
@@ -40,7 +38,7 @@ class MessageMAA_TestCase(LiveServerTestCase):
         """ Executée à chaque lancement d'une fonction test_ de cette classe 
             TODO: enelever ensuite si pas utilisée.
         """
-        pass
+        settings.RUNNING_SERVER = self.live_server_url
 
     def tearDown(self):
         """ Executée après chaque lancement d'une fonction test_ de cette classe 
@@ -181,7 +179,6 @@ class MessageMAA_TestCase(LiveServerTestCase):
         for i in range(0, 24):
             data.append( (datetime.strftime(date_start + timedelta(hours=i),"%Y-%m-%d %H:%M:%S"), ( 10, 15, 300))  )
         data= json.dumps(data)
-        print (data)
 
         envoi = EnvoiMAA.objects.create(
                 configmaa = configmaa,
@@ -192,7 +189,7 @@ class MessageMAA_TestCase(LiveServerTestCase):
                 message = message_brute,
                 description_maa = description,
                 fcst = False,
-                status = ('to_create', 'A créer'),
+                status = 'to_create',
                 context_TAF = context_TAF, 
                 cancel = True,
                 context_CDPH = context_CDP,
@@ -204,30 +201,10 @@ class MessageMAA_TestCase(LiveServerTestCase):
                 data_vent = data,
             )
         envoi.save()
-        
-
+    
+        pdf_temp = None
         try:
-                base_dir = Path(__file__).parent
-                name = "MAA_{}_{}_{}.pdf".format(configmaa.station.oaci, configmaa.type_maa, configmaa.seuil)
-                chemin = base_dir.joinpath(name)
-                url = reverse('view_product_maa',args=[envoi.pk])
-                
-                asyncio.run(html_to_pdf(self.live_server_url + url, chemin))
-
-                with open(Path(base_dir).joinpath(name), 'rb') as f:
-                    envoi.message_pdf.save(name, File(f))
-                envoi.save()
-                """pdf = str(base_dir.joinpath("tmp").joinpath(name).absolute())
-                #tmp = tempfile.SpooledTemporaryFile() 
-                #TODO: il y a sans doute moyen de passer par un fichier temporaire en mémoire
-
-                # On est dans un cas de MAA auto, donc s'il y a un MAA de vent ou de température, on doit être 
-                # capable de faire un atom en fin de page 
-                data=None
-                MaaPDF(pdf, envoi, data, True)
-
-                with open(pdf, 'rb') as f:
-                    envoi.message_pdf.save(name, File(f))"""
+            envoi, pdf_temp = create_MAA_pdf_from_envoimaa(envoi)
 
         except Exception as e:
                 log = log + "\n" + "{}: Impossible de créer le PDF pour l'annulation de MAA.".format(datetime.utcnow())
@@ -237,10 +214,10 @@ class MessageMAA_TestCase(LiveServerTestCase):
                 print(log)
                 raise SystemError("Impossible de créer le PDF pour l'annulation du MAA suivant : {} à {}".format(configmaa, datetime.utcnow()))
 
-        envoi.status = ('to_send', 'Nouveau')
+        envoi.status = 'to_send'
         envoi.log = log
         envoi.save()
-        #if pdf: os.remove(pdf)
+        if pdf_temp: os.remove(pdf_temp)
         
     def test_production_pdf_avec_temperature(self):
         """ Permet de tester la création d'un MAA (et export PDF) sur un MAA TMIN avec graphique """
@@ -284,9 +261,9 @@ class MessageMAA_TestCase(LiveServerTestCase):
                 message = message_brute,
                 description_maa = description,
                 fcst = False,
-                status = ('to_create', 'A créer'),
+                status = 'to_create',
                 context_TAF = context_TAF, 
-                cancel = True,
+                cancel = False,
                 context_CDPH = context_CDP,
                 context_CDPQ = "",
                 log = log,
@@ -298,28 +275,9 @@ class MessageMAA_TestCase(LiveServerTestCase):
         envoi.save()
         
 
+        pdf_temp = None
         try:
-                base_dir = Path(__file__).parent
-                name = "MAA_{}_{}_{}.pdf".format(configmaa.station.oaci, configmaa.type_maa, configmaa.seuil)
-                chemin = base_dir.joinpath(name)
-                url = reverse('view_product_maa',args=[envoi.pk])
-                
-                asyncio.run(html_to_pdf(self.live_server_url + url, chemin))
-
-                with open(Path(base_dir).joinpath(name), 'rb') as f:
-                    envoi.message_pdf.save(name, File(f))
-                envoi.save()
-                """pdf = str(base_dir.joinpath("tmp").joinpath(name).absolute())
-                #tmp = tempfile.SpooledTemporaryFile() 
-                #TODO: il y a sans doute moyen de passer par un fichier temporaire en mémoire
-
-                # On est dans un cas de MAA auto, donc s'il y a un MAA de vent ou de température, on doit être 
-                # capable de faire un atom en fin de page 
-                data=None
-                MaaPDF(pdf, envoi, data, True)
-
-                with open(pdf, 'rb') as f:
-                    envoi.message_pdf.save(name, File(f))"""
+            envoi, pdf_temp = create_MAA_pdf_from_envoimaa(envoi)
 
         except Exception as e:
                 log = log + "\n" + "{}: Impossible de créer le PDF pour l'annulation de MAA.".format(datetime.utcnow())
@@ -332,7 +290,7 @@ class MessageMAA_TestCase(LiveServerTestCase):
         envoi.status = ('to_send', 'Nouveau')
         envoi.log = log
         envoi.save()
-        #if pdf: os.remove(pdf)
+        if pdf_temp: os.remove(pdf_temp)
         
 
 

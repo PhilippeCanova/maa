@@ -58,7 +58,7 @@ class EnvoiMAA(models.Model):
     # Détermine les différents statuts possibles pour un MAA généré en base.
     CHOICES_STATUS = [
         ('to_create', 'A créer'), # Indique à la routine secondaire qu'il y a une production de pdf à générer
-        ('to_send', 'Nouveau'),   # A envoyer
+        ('to_send', 'A envoyer'),   # A envoyer
         ('ok', 'Envoyé'),         # Acquittement de délivrance de Difmet, Transmet et Metgate
     ]
 
@@ -108,4 +108,4 @@ class EnvoiMAA(models.Model):
         return None
 
     def __str__(self):
-        return "{} {} {} {}".format(self.configmaa.station.oaci, self.configmaa.type_maa, self.date_envoi, self.numero)
+        return "pk:{} {} {} {} {}".format(self.pk, self.configmaa.station.oaci, self.configmaa.type_maa, self.date_envoi, self.numero)
