@@ -10,7 +10,7 @@ from datetime import timedelta
 from math import ceil
 
 from django.conf import settings
-
+from configurateur.models import Station
 
 PROXY_METEO = "http://proxy.meteo.fr:11011"
 
@@ -38,8 +38,6 @@ def retrieveDatas(stations = None):
 
     return stations_datas_aero, stations_datas_cdph, stations_datas_cdpq
 '''
-class RetrieveData(object):
-    pass
 
 def request_data_cdp(url):
     """ Va chercher les données sur le SA CDP Aéro"""

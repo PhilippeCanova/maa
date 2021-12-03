@@ -7,17 +7,15 @@ from datetime import datetime
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.conf import settings
 
-
+from donneur.commons import request_data_cdp
 from donneur.commons import retrieveDatasAero
 from donneur.commons import retrieveDatasCDPH_metropole
 from donneur.commons import retrieveDatasCDPH_om
 from donneur.commons import AeroDataStations, CDPDataStations, ManagerData
 
 from analyseur.commons import define_open_airport, provide_manager
-
 from configurateur.models import ConfigMAA, Station
 from configurateur.initiate_toolbox.initiate_db_tools import Initiate
-
 class RetrieveData_TestCase(StaticLiveServerTestCase):
     @classmethod
     def setUpClass(cls):
@@ -29,12 +27,20 @@ class RetrieveData_TestCase(StaticLiveServerTestCase):
         init = Initiate() # Par défaut charge la base de test ficitve
         init.create_all_base_test()
 
+        
+
     def setUp(self):
         """ Executée à chaque lancement d'une fonction test_ de cette classe 
             TODO: enelever ensuite si pas utilisée.
         """
         settings.RUNNING_SERVER = self.live_server_url
 
+        # Charge le jeu de station au format ingérable par les retrieve_data
+        stations_objects = Station.objects.all()
+        self.stations = []
+        for station in stations_objects:
+            self.stations.append(( station.oaci, station.inseepp, station.outremer ))
+        print('go through')
     def tearDown(self):
         """ Executée après chaque lancement d'une fonction test_ de cette classe 
             TODO: enelever ensuite si pas utilisée.
@@ -56,17 +62,19 @@ class RetrieveData_TestCase(StaticLiveServerTestCase):
         
         raise KeyError("Imposible de trouver le fichier {} du TC{}".format(fichier, numTC))
 
+    '''@classmethod
     def get_stations(self):
         """ Permet de générer un tableau avec les infos des stations nécessaire au lancement des extractions 
             Retourne une liste (oaci, inseepp, outremer)
         """
+        
         stations_objects = Station.objects.all()
         stations = []
         for station in stations_objects:
             stations.append(( station.oaci, station.inseepp, station.outremer ))
-        return stations
+        return stations'''
 
-    def test_retrieve_datas(self):
+    '''def test_retrieve_datas(self):
         """ Test l'importation des données issues du cdp aéro 
             On ne se concentre pas sur les données, juste le nombre de lignes insérées
         """
@@ -178,6 +186,7 @@ class RetrieveData_TestCase(StaticLiveServerTestCase):
 
             #TODO: prévoir des tests pour le non report avec LFPG, LFPB et LFQQ
     
+    '''
 
     @patch("donneur.commons.request_data_cdp")
     def test_retrieve_datas_CDPH(self, mock_request_data_cdp):
@@ -189,18 +198,23 @@ class RetrieveData_TestCase(StaticLiveServerTestCase):
             self.get_data_tc(TC,'cdph'), 
             self.get_data_tc(TC,'cdphom'),  
         ]
-        #stations = self.get_stations() # Met le souk dans les mock si appelé en premier !?
-        stations=[  ('AAAA', '1111111', False),
+
+        #stations = RetrieveData_TestCase.get_stations() # Met le souk dans les mock si appelé en premier !?
+        """stations=[  ('AAAA', '1111111', False),
                     ('CCCC', '3333333', True),
-                ]
+                ]"""
+        print("self", self.__dict__)
+        stations = self.stations
 
         cdph = retrieveDatasCDPH_metropole( [(oaci, insee) for oaci, insee, om in stations if not om])
         cdph_om = retrieveDatasCDPH_om( [(oaci, insee) for oaci, insee, om in stations if om])
-        
+
         datas = CDPDataStations()
         datas.load_datas(cdph, False)
         datas.load_datas(cdph_om, True)
         
+        
+
         # récupère une ligne d'info
         station = datas.getStation('AAAA')
         heure = station.get_echeance(datetime(2021,11,12,10,0,0))
@@ -304,8 +318,9 @@ class RetrieveData_TestCase(StaticLiveServerTestCase):
         self.assertEqual( self.batterie_tests(assembleur, datetime(2021,11,11,14,0,0), 'EEEE'), ['FZRA'])
         self.assertEqual( self.batterie_tests(assembleur, datetime(2021,11,11,15,0,0), 'EEEE'), ['FG'])
 
-    @patch("donneur.commons.request_data_cdp")
+    '''@patch("donneur.commons.request_data_cdp")
     def test_ventillation_textreme_metropole(self, mock_request_data_cdp):
+
         # Récupération des données via les SA CDP simulés par le TC1
         num_TC = '5'
         mock_request_data_cdp.side_effect=[
@@ -318,6 +333,7 @@ class RetrieveData_TestCase(StaticLiveServerTestCase):
 
         heure_analyse = datetime(2021,11,11,5,0,0)
         stations = define_open_airport(heure_analyse)# Met le souk dans les mock si appelé en premier !?
+
         manager_cdp = provide_manager(stations)
 
         # Vérifie si le chargement est bon pour le tn
@@ -342,7 +358,8 @@ class RetrieveData_TestCase(StaticLiveServerTestCase):
                          True) # Ne déclencherait pas juste avec le 8 du cdph
         self.assertEqual(manager_cdp.question_declenche('AAAA', datetime(2021,11,11,11,0,0),'TMAX', 16),
                          False) # Montre qu'avec un seuil plus bas que le 16 de l'heure, on déclenche
-    
+        '''
+
     '''@patch("donneur.commons.request_data_cdp")
     def test_vent_variable(self, mock_request_data_cdp):
         """" Test la création d'un MAA avec un paramètre vent générant un PDF avec graphique vent """
