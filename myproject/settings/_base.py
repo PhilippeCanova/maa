@@ -40,11 +40,17 @@ def get_secret(setting):
 SECRET_KEY = get_secret('DJANGO_SECRET_KEY')
 #'django-insecure-ugvxxupr(m51@!1_l%76-&ycc)v87_3pc)ixqf!z%69j47t-6%'
 MACHINE = get_secret('MACHINE')
+
 REMOTE_CDPAERO = 'http://nihoa-v27b.meteo.fr/cdp1/aerop?'
+REMOTE_CDPAERO_ARCHIVE = 'http://nihoa-v27b.meteo.fr/cdp1/aerop?'
 REMOTE_CDPH = 'http://nihoa-v27b.meteo.fr/cdp1/h_p?'
+REMOTE_CDPH_ARCHIVE = 'http://nihoa-v27b.meteo.fr/cdp1/h_p?'
 REMOTE_CDPH_OM = 'http://nihoa-v27b.meteo.fr/cdp1/om_h?'
+REMOTE_CDPH_OM_ARCHIVE = 'http://nihoa-v27b.meteo.fr/cdp1/om_h?'
 REMOTE_CDPQ = 'http://nihoa-v27b.meteo.fr/cdp1/q_p?'
+REMOTE_CDPQ_ARCHIVE = 'http://nihoa-v27b.meteo.fr/cdp1/q_p?'
 REMOTE_CDPQ_OM = 'http://nihoa-v27b.meteo.fr/cdp1/om_q?'
+REMOTE_CDPQ_OM_ARCHIVE = 'http://nihoa-v27b.meteo.fr/cdp1/om_q?'
 
 
 # SECURITY WARNING: don't run with debug turned on in production!

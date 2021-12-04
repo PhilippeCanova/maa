@@ -56,7 +56,7 @@ def request_data_cdp(url):
     #TODO: si pas de données (donc data=None) loguer un warning
     return data
 
-def retrieveDatasAero(stations = None):
+def retrieveDatasAero(stations = None, remote_url = settings.REMOTE_CDPAERO):
     """ Fonction allant chercher les données aéro d'une liste de station. 
     La liste représente les tuple (oaci, insee) des stations. 
     
@@ -64,7 +64,6 @@ def retrieveDatasAero(stations = None):
     """
     #http://nihoa-v27b.meteo.fr/cdp1/aerop?dpivot=-3,48&format=csv&param=idoaci,id,typeprev,dvalid,DateEmissionTAF,visi,visiprob40,VisibiliteTempo,VisibiliteProb40Tempo,ddtaf,DDTAFTempo,DDTAFProb40,DDTAFProb40Tempo,FFTAF,FFTAFTempo,FFTAFProb40,FFTAFProb40Tempo,FXTAF,FXTAFTempo,FXTAFProb40,FXTAFProb40Tempo,wwTAF,wwTAFTempo,wwTAFProb40,wwTAFProb40Tempo&id=6929961&ordre=dvalid&cond=(typeprev=0)%20and%20(DateEmissionTAF!=%27%27)
     reponse = {}
-    remote_url = settings.REMOTE_CDPAERO
     parametres = {}
     parametres['dpivot'] = "-3,48"  # Permet de faire la demande sur -3h à 48h 
     parametres['format'] = 'csv'    # Réponse du SA CDP en csv 
@@ -126,7 +125,7 @@ def retrieveDatasAero(stations = None):
 
     return reponse'''
 
-def retrieveDatasCDPH_metropole(stations = None):
+def retrieveDatasCDPH_metropole(stations = None, remote_url = settings.REMOTE_CDPH):
     """ Fonction allant chercher les données CDPH d'une liste de station metropole. 
     La liste représente les tuple (oaci, inseepp) des stations. 
     
@@ -141,7 +140,6 @@ def retrieveDatasCDPH_metropole(stations = None):
     
     """
     reponse = {}
-    remote_url = settings.REMOTE_CDPH
     parametres = {}
     parametres['dpivot'] = "-48,60"  # Permet de faire la demande sur -3h à 48h 
     parametres['format'] = 'csv'    # Réponse du SA CDP en csv 
@@ -175,7 +173,7 @@ def retrieveDatasCDPH_metropole(stations = None):
     
     return reponse
 
-def retrieveDatasCDPH_om(stations = None):
+def retrieveDatasCDPH_om(stations = None, remote_url = settings.REMOTE_CDPH_OM):
     """ Fonction allant chercher les données CDPH outre-mer d'une liste de station. 
     La liste représente les tuple (oaci, inseepp) des stations. 
     
@@ -184,7 +182,6 @@ def retrieveDatasCDPH_om(stations = None):
     """
     
     reponse = {}
-    remote_url = settings.REMOTE_CDPH_OM
     parametres = {}
     parametres['dpivot'] = "-48,60"  # Permet de faire la demande sur -3h à 48h 
     parametres['format'] = 'csv'    # Réponse du SA CDP en csv 
@@ -216,7 +213,7 @@ def retrieveDatasCDPH_om(stations = None):
     
     return reponse
 
-def retrieveDatasCDPQ_metropole(stations = None):
+def retrieveDatasCDPQ_metropole(stations = None, remote_url = settings.REMOTE_CDPQ):
     """ Fonction allant chercher les données CDPQ d'une liste de station. 
     La liste représente les tuple (oaci, inseepp) des stations. 
     
@@ -227,7 +224,6 @@ def retrieveDatasCDPQ_metropole(stations = None):
     """
     PARAMETRES_CDPQ = ['tn/10','tx/10']
     reponse = {}
-    remote_url = settings.REMOTE_CDPQ
     parametres = {}
     parametres['dpivot'] = "-48,60"  # Permet de faire la demande sur -3h à 48h 
     parametres['format'] = 'csv'    # Réponse du SA CDP en csv 
@@ -259,7 +255,7 @@ def retrieveDatasCDPQ_metropole(stations = None):
     
     return reponse
 
-def retrieveDatasCDPQ_om(stations = None):
+def retrieveDatasCDPQ_om(stations = None, remote_url = settings.REMOTE_CDPQ_OM):
     """ Fonction allant chercher les données CDPQ outre-mer d'une liste de station. 
     La liste représente les tuple (oaci, inseepp) des stations. 
     
@@ -271,7 +267,6 @@ def retrieveDatasCDPQ_om(stations = None):
     PARAMETRES_CDPQ_OM = ['tn/10','tx/10']
 
     reponse = {}
-    remote_url = settings.REMOTE_CDPQ_OM
     parametres = {}
     parametres['dpivot'] = "-48,60"  # Permet de faire la demande sur -3h à 48h 
     parametres['format'] = 'csv'    # Réponse du SA CDP en csv 

@@ -25,6 +25,7 @@ from myproject.apps.core.views import ListConfigMAA
 
 from analyseur.views import SetManuelMAA
 from producteur.views import ProductMAA
+from donneur.views import RetrievePastDatasView
 
 #from rest_framework.documentation import include_docs_urls
 
@@ -50,5 +51,6 @@ urlpatterns = [
     # Permet de lancer une vue avec peu de valeur ajoutée
     path('api/configs_maa/maa_config.php', SetManuelMAA.as_view(), name='set_manuel_maa'), #Soumettre des MAA mauellement
     path('maa/product/<int:pk>/', ProductMAA.as_view(), name='view_product_maa'), # Visualiser un produit MAA pour en faire un export PDF
-        
+    path('datas/past/', RetrievePastDatasView.as_view(), name='past_data'),
+    
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

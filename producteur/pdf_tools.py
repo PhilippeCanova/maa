@@ -48,7 +48,7 @@ async def html_to_pdf(url, pdf_file):
     try:
         from pyppeteer import launch
     except ImportError:
-        _error(
+        print(
             "Generating PDF from book HTML requires the pyppeteer package. "
             "Install it first.",
             ImportError,
@@ -61,7 +61,7 @@ async def html_to_pdf(url, pdf_file):
 
     # Waiting for networkidle0 seems to let mathjax render
     url = settings.RUNNING_SERVER + url
-    print(url)
+
     await page.goto( url , {"waitUntil": ["networkidle0"]})
     # Give it *some* margins to make it look a little prettier
     # I just made these up
