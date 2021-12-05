@@ -41,6 +41,7 @@ SECRET_KEY = get_secret('DJANGO_SECRET_KEY')
 #'django-insecure-ugvxxupr(m51@!1_l%76-&ycc)v87_3pc)ixqf!z%69j47t-6%'
 MACHINE = get_secret('MACHINE')
 
+#TODO: trouver et affecter les url vers les bons nihoa/base-cdp
 REMOTE_CDPAERO = 'http://nihoa-v27b.meteo.fr/cdp1/aerop?'
 REMOTE_CDPAERO_ARCHIVE = 'http://nihoa-v27b.meteo.fr/cdp1/aerop?'
 REMOTE_CDPH = 'http://nihoa-v27b.meteo.fr/cdp1/h_p?'

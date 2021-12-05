@@ -1,11 +1,14 @@
+<style>
+    td {padding: 0.5em; text-align: center; }
+</style>
 <form method="post">{% csrf_token %}
     {{ form.as_p }}
     <input type="submit" value="Send message">
 </form>
 {% if station %}
-<p><label>Station choisie : </label>{{ station }} - {{ inseepp }}</p>
-<p><label>Date de production : </label>{{ heure_analyse }}</p>
-<p><label>Données aéro :</label><textarea>{{ data_aero }}</textarea></p>
-<p><label>Données H :</label><textarea>{{ data_h }}</textarea></p>
-<p><label>Données Q :</label><textarea>{{ data_q }}</textarea></p>
+
+{% include "./data_tableau.html" with titre="Données Aéro" datas=data_aero %}
+{% include "./data_tableau.html" with titre="Données Horaires" datas=data_h %}
+{% include "./data_tableau.html" with titre="Données Quotidiennes" datas=data_q %}
+
 {% endif %}

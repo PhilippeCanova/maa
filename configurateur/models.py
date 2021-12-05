@@ -300,13 +300,15 @@ class ConfigMAA(Activable):
             models.UniqueConstraint(fields=['station', 'type_maa', 'seuil'], name='unique combo MAA par station')
         ]
 
-class Client(models.Model):
+class Client(Activable):
     """ Liste des destinataires reconnus"""
     nom = models.CharField(max_length= 250, null=False)
     prenom = models.CharField(max_length= 250, null=True, blank=True)
     telephone = models.CharField(max_length= 15, null=False)
     email = models.EmailField(max_length= 250, null=True, blank=True)
-    configmaas = models.ManyToManyField(ConfigMAA)
+    regions = models.ManyToManyField(Region, blank=True, related_name='regions')
+    stations = models.ManyToManyField(Station, blank=True, related_name='stations')
+    configmaas = models.ManyToManyField(ConfigMAA, blank=True)
     # TODO: Ajouter une fin d'abonnement pour pouvoir désactiver la production avant de pouvoir supprimer de la base
 
     def __str__(self):
@@ -321,7 +323,12 @@ class MediumSMS(models.Model):
     """ Destinataires d'un client donnée"""
     client = models.ForeignKey(Client, on_delete=models.CASCADE, null=False)
     sms = models.CharField(max_length=15, null=False)
-    
+
+class MediumFax(models.Model):
+    """ Destinataires d'un client donnée"""
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, null=False)
+    fax = models.CharField(max_length=15, null=False)
+
 class MediumFTP(models.Model):
     """ Destinataires d'un client donnée"""
     client = models.ForeignKey(Client, on_delete=models.CASCADE, null=False)

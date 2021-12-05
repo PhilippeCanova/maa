@@ -222,7 +222,7 @@ def retrieveDatasCDPQ_metropole(stations = None, remote_url = settings.REMOTE_CD
     ex requête: http://nihoa-v27b.meteo.fr/cdp1/om_h?dpivot=-48,60&format=csv&param=t/10,ff*1.94384,fx*1.94384,w1,etatsol,rrcum_omfutur(adddate(dvalid,INTERVAL 6 HOUR),ID,0)/10,dd&id=9710101&ordre=dvalid&meta=id,dvalid,dinsert
     
     """
-    PARAMETRES_CDPQ = ['tn/10','tx/10']
+    PARAMETRES_CDPQ = CDPDataHoraire.PARAMETRES_CDPQ
     reponse = {}
     parametres = {}
     parametres['dpivot'] = "-48,60"  # Permet de faire la demande sur -3h à 48h 
@@ -264,7 +264,7 @@ def retrieveDatasCDPQ_om(stations = None, remote_url = settings.REMOTE_CDPQ_OM):
     ex requête: http://nihoa-v27b.meteo.fr/cdp1/om_h?dpivot=-48,60&format=csv&param=t/10,ff*1.94384,fx*1.94384,w1,etatsol,rrcum_omfutur(adddate(dvalid,INTERVAL 6 HOUR),ID,0)/10,dd&id=9710101&ordre=dvalid&meta=id,dvalid,dinsert
     
     """
-    PARAMETRES_CDPQ_OM = ['tn/10','tx/10']
+    PARAMETRES_CDPQ_OM = CDPDataHoraire.PARAMETRES_CDPQ_OM
 
     reponse = {}
     parametres = {}
@@ -784,6 +784,10 @@ class CDPDataHoraire(object):
     
     PARAMETRES_CDPH_OM = [('t','t/10'),('ff','ff*1.94384'),('fx','fx*1.94384'),('ww','w1'),('etatsol','etatsol'),
                         ('rr6','rrcum_omfutur(adddate(dvalid,INTERVAL 6 HOUR),ID,0)/10'),('dd','dd')]
+
+    PARAMETRES_CDPQ_OM = ['tn/10','tx/10']
+
+    PARAMETRES_CDPQ = ['tn/10','tx/10']
 
     FORMAT_DATE = "%Y-%m-%d %H:%M:%S"
 

@@ -99,8 +99,6 @@ class InitiateurTestCase(TestCase):
         
     def test_import_for_test(self):
         """ Test une itialisation complète à partir des données de test (box_test) """
-        from django.contrib.auth import login, authenticate
-        from django.test import Client
 
         #Check régions
         self.assertEqual(len(Region.objects.all()), 3)

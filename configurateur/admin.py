@@ -1,8 +1,8 @@
 from django.contrib import admin
-
 from django.shortcuts import redirect
+from django.db.models import Q
 
-from .models import ConfigMAA, Station, MediumMail, MediumSMS, MediumFTP, AutorisedMAAs, Client
+from .models import ConfigMAA, Region, Station, MediumMail, MediumSMS, MediumFTP, MediumFax, AutorisedMAAs, Client
 
 class ConfigMAAAdmin(admin.ModelAdmin):
     READONLY_FOR_POP = ['pause', 'scan', 'profondeur']
@@ -52,6 +52,14 @@ class ConfigMAAAdmin(admin.ModelAdmin):
             return redirect(request.get_full_path())
         else:
             return redirect('/admin/core/configmaa/')
+
+    def get_queryset(self, request):
+        region = request.user.profile.region
+        if region:
+            qs = ConfigMAA.objects.filter(station__region = region )
+        else: 
+            qs = Station.objects.all()
+        return qs
 
     def save_model(self, request, obj, form, change):
         #obj.user = request.user
@@ -105,6 +113,9 @@ class MediumSMSInline(admin.TabularInline):
     model = MediumSMS
     extra = 1
 
+class MediumFaxInline(admin.TabularInline):
+    model = MediumFax
+    extra = 1
 class MediumFTPInline(admin.TabularInline):
     model = MediumFTP
     extra = 1
@@ -118,7 +129,6 @@ class StationAdmin(admin.ModelAdmin):
     # inlines = [ConfMAAInline]   # Finalement, n'apporte pas grand chose et complique la donne
     list_display = ('oaci', 'nom', 'inseepp', 'region', 'entete', 'active')
     search_fields = ['oaci', 'nom', 'region__tag']
-
 
     def get_queryset(self, request):
         region = request.user.profile.region
@@ -135,17 +145,28 @@ class ClientAdmin(admin.ModelAdmin):
         ('Paramètres MAA',               {'fields': [ 'retention', 'reconduction', 'repousse']}),
         ('Gestion des heures', {'fields': ['date_pivot', 'ouverture', 'ouverture1', 'ouverture2', 'fermeture', 'fermeture1', 'fermeture2', 'fuseau']}),
     ]"""
-    inlines = [MediumEmailInline, MediumSMSInline, MediumFTPInline ]
+    inlines = [MediumEmailInline, MediumSMSInline, MediumFTPInline, MediumFaxInline ]
     list_display = ('nom', 'prenom', 'telephone', 'email')
     #search_fields = ['oaci', 'nom', 'region__tag']
 
-    """def get_queryset(self, request):
-        region = request.user.profile.region
-        if region:
-            qs = Station.objects.filter(region = region )
-        else: 
-            qs = Station.objects.all()
-        return qs"""
+    #TODO: voir les listes déroulantes des stations et régions peuvent s'adapter en fonction de la région du user.
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        regions = form.instance.regions.all()
+        if regions:
+            form.instance.stations.clear()
+            tags = regions.values_list('tag')
+            for station in Station.objects.filter(region__tag__contains = tags):
+                form.instance.stations.add(station)
+
+        stations = form.instance.stations.all()
+        if stations:
+            form.instance.configmaas.clear()
+            tags = [ tag[0] for tag in stations.values_list('oaci')]
+            print (tags)
+            print (ConfigMAA.objects.filter(station__oaci__in = tags))
+            for config in ConfigMAA.objects.filter(station__oaci__in = tags):
+                form.instance.configmaas.add(config)
 
 admin.site.register(Station, StationAdmin)
 admin.site.register(ConfigMAA, ConfigMAAAdmin)
