@@ -38,3 +38,7 @@ env/
 !/static/.gitkeep
 # Secrets
 secrets.json
+# Données utilisateurs :
+configurateur/initiate_toolbox/v1/*
+configurateur/initiate_toolbox/box_oper/*
+configurateur/initiate_toolbox/box_test/*

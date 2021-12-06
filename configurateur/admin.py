@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.forms import ModelForm
 from django.shortcuts import redirect
 from django.db.models import Q
 
@@ -138,8 +139,8 @@ class StationAdmin(admin.ModelAdmin):
             qs = Station.objects.all()
         return qs
 
+        
 class ClientAdmin(admin.ModelAdmin):
-
     """fieldsets = [
         ('Paramètres généraux',               {'fields': ['active', 'oaci', 'nom', 'entete', 'region', 'wind_unit', 'temp_unit']}),
         ('Paramètres MAA',               {'fields': [ 'retention', 'reconduction', 'repousse']}),
@@ -148,6 +149,23 @@ class ClientAdmin(admin.ModelAdmin):
     inlines = [MediumEmailInline, MediumSMSInline, MediumFTPInline, MediumFaxInline ]
     list_display = ('nom', 'prenom', 'telephone', 'email')
     #search_fields = ['oaci', 'nom', 'region__tag']
+
+    def get_form(self, request, obj=None, **kwargs):
+        reponse = super().get_form(request, obj, **kwargs)
+        tag = request.user.profile.region
+        if tag is not None:
+            reponse.base_fields['regions'].queryset = Region.objects.filter(tag = tag)
+            reponse.base_fields['stations'].queryset = Station.objects.filter(region__tag = tag)
+            reponse.base_fields['configmaas'].queryset = ConfigMAA.objects.filter(station__region__tag = tag)
+
+        return reponse
+
+    """def get_fields(self, request, obj=None):
+        reponse = super().get_fields(request, obj)
+        obj.stations.clear()
+        for station in Station.objects.filter(region__tag__contains = 'DIRSO'):
+            obj.stations.add(station)
+        return reponse"""
 
     #TODO: voir les listes déroulantes des stations et régions peuvent s'adapter en fonction de la région du user.
     def save_related(self, request, form, formsets, change):
@@ -163,8 +181,6 @@ class ClientAdmin(admin.ModelAdmin):
         if stations:
             form.instance.configmaas.clear()
             tags = [ tag[0] for tag in stations.values_list('oaci')]
-            print (tags)
-            print (ConfigMAA.objects.filter(station__oaci__in = tags))
             for config in ConfigMAA.objects.filter(station__oaci__in = tags):
                 form.instance.configmaas.add(config)
 
