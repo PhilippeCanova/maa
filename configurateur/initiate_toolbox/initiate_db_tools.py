@@ -1,22 +1,152 @@
 from pathlib import Path
 import datetime
 import time
+import csv
+import xml.etree.ElementTree as ET
 
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.core import serializers
 
 from myproject.apps.core.models import Log
 from analyseur.models import EnvoiMAA
 from profiles.models import Profile
-from configurateur.models import Region, Station, ConfigMAA, Client, MediumMail, AutorisedMAAs
+from configurateur.models import Region, Station, ConfigMAA, AutorisedMAAs
+from configurateur.models import Client, MediumMail, MediumFax, MediumFTP, MediumSMS
 
+
+class ConfigClients(object):
+    def __init__(self, fichier):
+        """ Sérialize une Informationc Client à partir d'une ligne de la base MySQL """
+        self.clients = {}
+        with open(fichier, 'r') as ficin:
+            entetes = ficin.readline()
+            entetes = entetes.split(';')
+                
+            for ligne in ficin.readlines():
+                client = {}
+                infos = ligne.split(';')
+                for index, val in enumerate(infos):
+                    client[entetes[index].strip()] = val.strip()
+                self.clients[client['id']]= client
+
+class ConfigClientProduit(object):
+    def __init__(self, fichier):
+        """ Sérialize une information Client-Produit à partir d'une ligne de la base MySQL """
+        self.client_prod = {}
+        with open(fichier, 'r') as ficin:
+            entetes = ficin.readline().strip()
+            entetes = entetes.split(';')
+
+            for ligne in ficin.readlines():
+                instance = {}
+                instance['mails'] = []
+                instance['smss'] = []
+                instance['ftps'] = []
+                instance['faxs'] = []
+                instance['type_maa'] = []
+                
+                infos = ligne.split(';')
+                for index, val in enumerate(infos):
+                    champs = entetes[index].strip()
+                    if champs in ['id_client', 'nom_produit', 'date_fin', 'station', 'params', 'actif']:
+                        instance[champs] = val.strip()
+
+                if instance['nom_produit'] == 'maa':
+                    date_fin = datetime.datetime.strptime(instance['date_fin'], "%Y-%m-%d %H:%M:%S")
+                    if date_fin < datetime.datetime.utcnow(): # Abonnement terminé, on ne le prend pas
+                        continue
+
+                    # Extrait les infos params
+                    try:
+                        params  = instance['params'][10:]
+                        params = params.split('\\n\\n')
+                        for param in params:
+                            str_param = param[1:-1].replace('\\n', '')
+
+                            root = ET.fromstring(str_param)
+                            station = root.find('station')
+                            if station is not None:
+                                instance['station'] = station.get('id')
+                                params = root.find('params')
+                                for type_param in params.attrib:
+                                    instance['type_maa'].append(type_param)
+
+                            mails = root.find('mail')
+                            if mails is not None:
+                                for dmail in mails.findall('dests'):
+                                    for mail in dmail.findall('dest'):
+                                        instance['mails'].append(mail.text)
+
+                            smss = root.find('sms')
+                            if smss is not None:
+                                for dsms in smss.findall('dests'):
+                                    for sms in dsms.findall('dest'):
+                                        instance['smss'].append(sms.text)
+                            
+                            ftps = root.find('ftp')
+                            if ftps is not None:
+                                for dftp in ftps.findall('dests'):
+                                    for ftp in dftp.findall('dest'):
+                                        host = ftp.find('host')
+                                        user = ftp.find('user')
+                                        passwd = ftp.find('passwd')
+                                        path = ftp.find('path')
+                                        passive = ftp.find('passive')
+                                        instance['ftps'].append( {'host': host.text,
+                                                                  'user': user.text,
+                                                                  'passwd': passwd.text,
+                                                                  'path': path.text,
+                                                                  'passive': passive.text})
+                            
+                            faxs = root.find('fax')
+                            if faxs is not None:
+                                for dfax in faxs.findall('dests'):
+                                    for fax in dfax.findall('dest'):
+                                        instance['faxs'].append(fax.text)
+
+                        id_client = instance['id_client']
+                        if id_client not in self.client_prod.keys():
+                            self.client_prod[id_client] = []
+                        self.client_prod[id_client].append(instance)
+
+                    except Exception as e:
+                        print (e)
+                    
 class ConfigStation(object):
         def __init__(self, entetes, ligne) -> None:
             super().__init__()
             infos = ligne.split('\t')
             for index, val in enumerate(infos):
                 self.__dict__[entetes[index].strip()] = val.strip()
+            self.outremer = False
+            self.active = True
+
+        def serialize_v2(self):
+            """ Permet de retrouner la config sous forme d'une config v2 """
+            rep = []
+            rep.append(self.station)
+            rep.append(self.nom)
+            rep.append(self.entete)
+            rep.append(datetime.datetime.strftime(self.date_pivot, "%Y-%m-%d %H:%M:%S"))
+            rep.append(self.dir)
+            rep.append(self.inseepp)
+            rep.append(str(self.outremer))
+            rep.append(str(self.active))
+            rep.append(datetime.datetime.strftime(self.ouverture,"%H:%M"))
+            rep.append(datetime.datetime.strftime(self.fermeture,"%H:%M"))
+            rep.append(self.retention)
+            rep.append(self.reconduction)
+            rep.append(self.delta_debut_repousse)
+            rep.append(self.unite_vent)
+            rep.append(self.fuseau)
+            rep.append(self.ouverture2)
+            rep.append(self.fermeture2)
+            rep.append(self.ouverture1)
+            rep.append(self.fermeture1)
+            
+            return ";".join(rep)
 
 class ConfigsStation(object):
         def __init__(self, fichier) -> None:
@@ -41,6 +171,9 @@ class ConfigsStation(object):
                     config.fermeture_hiver = datetime.datetime.strptime(config.fermeture2, "%H:%M")
                     self.stations[config.station] = config
 
+        def get_liste_stations(self):
+            return sorted(list(self.stations.keys()))
+
         def get_station(self, tag):
             return self.stations.get(tag, None)
 
@@ -50,9 +183,21 @@ class ConfigsStation(object):
             for config in self.stations.values():
                 regions.append(config.dir)
             return set(regions)
-            
+        
+        def add_inseepp(self, correspondance):
+            """ A partir du dictionnaire correspondance {oaci, inseepp}, j'ajoute l'insee aux config station """
+            for oaci, station in self.stations.items():
+                inseepp = correspondance.get(oaci, None)
+                if inseepp is None:
+                    print("Pas de correspondance Inseepp pour " + oaci)
+                else:
+                    station.inseepp = inseepp
+                    if inseepp[:2] > '95':
+                        self.outremer = True
+
 class ConfMAA(object):
     def __init__(self, configsStation, ligne) -> None:
+        """ Convertit le fichier de config maa v1 en objet ConfMAA"""
         super().__init__()
         infos = ligne.split('\t')
         #id		station	type		seuil	deroule		next_run			auto	pause
@@ -68,6 +213,27 @@ class ConfMAA(object):
         except:
             pass
     
+    def serialize_to_v2(self):
+        """ Permet de formater la ligne allant dans liste_maas.csv """
+        # oaci;type;seuil;auto;pause;scan;profondeur
+        default_config = AutorisedMAAs.get_instance(self.type_maa)
+        if default_config is None:
+            print("Le type de MAA {} n'est pas reconnu.".format(self.type_maa))
+            return ""
+        
+        rep = [] #TODO: convertir les seuils 1 pour les occurrences en champ vide
+        rep.append(self.station)
+        rep.append(self.type_maa)
+        seuil = str(self.seuil)
+        if AutorisedMAAs.is_occurrence(self.type_maa):
+            seuil=""
+        rep.append(seuil)
+        rep.append(str(self.auto))
+        rep.append(str(self.pause))
+        rep.append(str(self.scan))
+        rep.append(str(self.profondeur))
+        return ";".join(rep)
+
     def __str__(self):
         reponse = [ "{}: {}".format(key, value) for key, value in self.__dict__.items()]
         return "\n".join(reponse)
@@ -93,6 +259,80 @@ class Initiate(object):
             - une fonciton delete qui remet à zéro la base. 
             - ... à détailler ...
     """
+    @staticmethod
+    def convert_v1_to_v2():
+        """" Permet de charger la config depuis les fichiers v1 pour en faire un set de config v2 """
+
+        # Répertoires de données
+        rep = Path(__file__).parent
+        v1 = rep.joinpath('v1')
+        oper = rep.joinpath('box_oper')
+
+        print ('Lecture de la config v1')
+        correspondance_oaci_insee = Initiate.set_correspondance_oaci_inseepp(v1.joinpath("correspondanceMAA.csv"))
+        station_v1 = ConfigsStation(v1.joinpath('config_station.csv'))
+        station_v1.add_inseepp(correspondance_oaci_insee)
+
+        print ('Création des régions')
+        regions = station_v1.get_dirs()
+        with open(oper.joinpath('liste_regions.csv'), 'w') as ficout:
+            for region in regions:
+                ficout.write(region + "\n")
+        
+        print('création de la config Stations')
+        entetes = "oaci;nom;entete;date_pivot;region__tag;inseepp;outremer;active;ouverture;fermeture;retention;reconduction;repousse;wint_unit;fuseau;ouverture_hiver;fermeture_hiver;ouverture_ete;fermeture_ete"
+        with open(oper.joinpath('liste_stations.csv'), 'w') as ficout:
+            ficout.write(entetes + "\n")
+            for oaci in station_v1.get_liste_stations():
+                config1 = station_v1.get_station(oaci)
+                ficout.write(config1.serialize_v2() + "\n")
+        
+        print("Création des config MAA")
+        entetes= "oaci;type;seuil;auto;pause;scan;profondeur\n"
+        fichier = v1.joinpath('table config_maa.csv')
+        configs_maa = ConfMAA.loadConfigs(fichier, station_v1.stations) #TODO: pas belle adhérence à stations...
+        with open(oper.joinpath('liste_maas.csv'), 'w') as ficout:
+            ficout.write(entetes)
+            for config in configs_maa:
+                ficout.write(config.serialize_to_v2() + "\n")
+
+        print("Création des clients")
+        fichier = v1.joinpath('client.csv')
+        clients = ConfigClients(fichier)
+
+        print("Création des client-produt")
+        fichier = v1.joinpath('client_produit.csv')
+        clients_produits = ConfigClientProduit(fichier)
+
+        for id_client, produits in clients_produits.client_prod.items():
+            print("Client : ", id_client)
+            for instance in produits:
+                print ("Station", instance['station'])
+                print ("type_maa", instance['type_maa'])
+                print ("FTPs", instance['ftps'])
+                print ("Mails", instance['mails'])
+                print ("SMSs", instance['smss'])
+                print ("Faxs", instance['faxs'])
+
+        """ Forme du modèle client
+        nom = models.CharField(max_length= 250, null=False)
+        prenom = models.CharField(max_length= 250, null=True, blank=True)
+        telephone = models.CharField(max_length= 15, null=False)
+        email = models.EmailField(max_length= 250, null=True, blank=True)
+        configmaas"""
+
+        print("TODO: implémenter la récupération les clients et médiums. Prendre config MetservicesPlus ?")
+
+    @staticmethod   
+    def set_correspondance_oaci_inseepp(fichier):
+        """ Retourne un dictionnaire {oaci:insepp} lue à partir du fichier de correspondance """
+        correspondance = {}
+        with open(fichier, 'r') as ficin:
+            for ligne in ficin.readlines():
+                infos = ligne.split(';')
+                correspondance[infos[1].strip()] = infos[0]
+        return correspondance
+
     def delete(self):
         # Suppression des régions existantes
         regions = Region.objects.all()
@@ -127,6 +367,18 @@ class Initiate(object):
         for mail in mails:
             mail.delete()
 
+        smss = MediumSMS.objects.all()
+        for sms in smss:
+            sms.delete()
+
+        ftps = MediumFTP.objects.all()
+        for ftp in ftps:
+            ftp.delete()
+
+        faxs = MediumFax.objects.all()
+        for fax in faxs:
+            fax.delete()
+
         # Création des profils
         users = User.objects.all()
         for user in users:
@@ -149,11 +401,7 @@ class Initiate(object):
 
         # Lecture des correspondances OACI - insee
         fichier_correspondance = base_dir.joinpath('correspondanceMAA.csv')
-        correspondance = {}
-        with open(fichier_correspondance, 'r') as ficin:
-            for ligne in ficin.readlines():
-                infos = ligne.split(';')
-                correspondance[infos[1].strip()] = infos[0]
+        correspondance = Initiate.set_correspondance_oaci_inseepp(fichier_correspondance)
         
         # Création des régions
         dirs = configs.get_dirs()
@@ -373,9 +621,18 @@ class Initiate(object):
 
         #TODO: prévoir aussi la création d'instance EnvoiMAA basiques et spécifiques
     
+    def create_all_base_oper(self):
+        """ Instancie toutes les tables en une seule commande """
+        self.delete()
+        self.create_region()
+        self.create_group_and_permissions()
+        self.create_users()
+        self.create_stations()
+        self.create_configsmaa()
+        #self.create_client()
+
     def create_all_base_test(self):
         """ Instancie toutes les tables en une seule commande """
-        from configurateur.initiate_toolbox.initiate_db_tools import Initiate
         self.create_region()
         self.create_group_and_permissions()
         self.create_users()
@@ -510,7 +767,6 @@ class Initiate(object):
                 if ligne.strip() == '':
                     continue
                 infos = ligne.strip().split(";")
-
                 oaci= infos[0]
                 nom = infos[1]
                 entete = infos[2]
@@ -563,9 +819,51 @@ class Initiate(object):
                 station = station, type_maa = type_maa, seuil = seuil,
                 auto = auto, pause = pause, scan = scan, profondeur = profondeur)
     
+    def create_configsmaa(self, fichier="liste_maas.csv"):
+        """ Charge les configsmaa """
+        path_file = self.box.joinpath(fichier)
+        self.check_ressource(path_file)
+
+        with open(path_file, 'r') as ficin:
+
+            # oaci;type;seuil;auto;pause;scan;profondeur
+            ficin.readline() # Evince la première ligne des entêtes
+            
+            for ligne in ficin.readlines():
+                if ligne.strip() == '':
+                    continue
+                infos = ligne.strip().split(";")
+                oaci = infos[0] #TODO: et avec une sérialisation ?
+                type_maa= infos[1]
+                seuil = None
+                if infos[2] != "":
+                    seuil = float(infos[2])
+                auto = infos[3] == 'True'
+                pause = int(infos[4])
+                scan = int(infos[5])
+                profondeur = int(infos[6])
+
+                # Récupère l'instance de station correspondance
+                station = Station.objects.get(oaci = infos[0])
+                configmaa = ConfigMAA.objects.create(
+                    station = station,
+                    type_maa = type_maa,
+                    seuil = seuil,
+                    auto = auto,
+                    pause = pause, 
+                    scan = scan, 
+                    profondeur = profondeur
+                )
+                configmaa.save()
+
     def create_full_configmaa(self):
         """ Crée l'ensemble des MAA possibles pour l'ensemble des stations exitantes """
         stations = Station.objects.all()
         all_types = [ type_maa for type_maa, label in AutorisedMAAs.get_choices()]
         for station in stations:
             self.create_configmaa(station.oaci, all_types)
+
+    def create_client(self, fichier="client.csv"):
+        """ Charge les clients """
+        path_file = self.box.joinpath(fichier)
+        self.check_ressource(path_file)
