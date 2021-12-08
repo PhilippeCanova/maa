@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.core import serializers
 
-from myproject.apps.core.models import Log
+from maa_django.apps.core.models import Log
 from analyseur.models import EnvoiMAA
 from profiles.models import Profile
 from configurateur.models import Region, Station, ConfigMAA, AutorisedMAAs

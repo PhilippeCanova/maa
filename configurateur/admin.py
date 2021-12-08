@@ -29,13 +29,13 @@ class ConfigMAAAdmin(admin.ModelAdmin):
             new_choices.append( (t, l) )
         form.base_fields['type_maa'].choices = new_choices
 
-        """if not request.user.has_perm('myproject.apps.core.expert_configmaa'):
+        """if not request.user.has_perm('maa_django.apps.core.expert_configmaa'):
             for name in self.READONLY_FOR_POP:
                 form.base_fields[name].widget.attrs['readonly'] = True"""
         return form
     
     def get_readonly_fields(self, request, obj=None):
-        if not request.user.has_perm('myproject.apps.core.expert_configmaa'):
+        if not request.user.has_perm('maa_django.apps.core.expert_configmaa'):
             return self.READONLY_FOR_POP
         else:
             return []
@@ -59,7 +59,7 @@ class ConfigMAAAdmin(admin.ModelAdmin):
         if region:
             qs = ConfigMAA.objects.filter(station__region = region )
         else: 
-            qs = Station.objects.all()
+            qs = ConfigMAA.objects.all()
         return qs
 
     def save_model(self, request, obj, form, change):
@@ -101,7 +101,7 @@ class ConfMAAInline(admin.TabularInline):
 
     def get_readonly_fields(self, request, obj):
         fields =  super().get_readonly_fields(request, obj=obj)
-        if not request.user.has_perm('myproject.apps.core.expert_configmaa'):
+        if not request.user.has_perm('maa_django.apps.core.expert_configmaa'):
             fields = tuple(list(fields) + ConfigMAAAdmin.READONLY_FOR_POP)
 
         return fields
@@ -154,9 +154,9 @@ class ClientAdmin(admin.ModelAdmin):
         reponse = super().get_form(request, obj, **kwargs)
         tag = request.user.profile.region
         if tag is not None:
-            reponse.base_fields['regions'].queryset = Region.objects.filter(tag = tag)
-            reponse.base_fields['stations'].queryset = Station.objects.filter(region__tag = tag)
-            reponse.base_fields['configmaas'].queryset = ConfigMAA.objects.filter(station__region__tag = tag)
+            reponse.base_fields['region'].queryset = Region.objects.filter(tag = tag)
+            reponse.base_fields['station'].queryset = Station.objects.filter(region__tag = tag)
+            reponse.base_fields['configmaa'].queryset = ConfigMAA.objects.filter(station__region__tag = tag)
 
         return reponse
 
@@ -170,19 +170,19 @@ class ClientAdmin(admin.ModelAdmin):
     #TODO: voir les listes déroulantes des stations et régions peuvent s'adapter en fonction de la région du user.
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
-        regions = form.instance.regions.all()
+        regions = form.instance.region.all()
         if regions:
-            form.instance.stations.clear()
+            form.instance.station.clear()
             tags = regions.values_list('tag')
             for station in Station.objects.filter(region__tag__contains = tags):
                 form.instance.stations.add(station)
 
-        stations = form.instance.stations.all()
+        stations = form.instance.station.all()
         if stations:
-            form.instance.configmaas.clear()
+            form.instance.configmaa.clear()
             tags = [ tag[0] for tag in stations.values_list('oaci')]
             for config in ConfigMAA.objects.filter(station__oaci__in = tags):
-                form.instance.configmaas.add(config)
+                form.instance.configmaa.add(config)
 
 admin.site.register(Station, StationAdmin)
 admin.site.register(ConfigMAA, ConfigMAAAdmin)

@@ -18,83 +18,83 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: myproject/apps/magazine/app_settings.py:10 myproject/settings/_base.py:175
+#: maa_django/apps/magazine/app_settings.py:10 maa_django/settings/_base.py:175
 msgid "Futurism"
 msgstr ""
 
-#: myproject/apps/magazine/app_settings.py:11 myproject/settings/_base.py:176
+#: maa_django/apps/magazine/app_settings.py:11 maa_django/settings/_base.py:176
 msgid "Nostalgia"
 msgstr ""
 
-#: myproject/apps/magazine/app_settings.py:12 myproject/settings/_base.py:177
+#: maa_django/apps/magazine/app_settings.py:12 maa_django/settings/_base.py:177
 msgid "Sustainability"
 msgstr ""
 
-#: myproject/apps/magazine/app_settings.py:13 myproject/settings/_base.py:178
+#: maa_django/apps/magazine/app_settings.py:13 maa_django/settings/_base.py:178
 msgid "Wonder"
 msgstr ""
 
-#: myproject/apps/magazine/apps.py:7
+#: maa_django/apps/magazine/apps.py:7
 msgid "Magazine"
 msgstr ""
 
-#: myproject/apps/magazine/models.py:8
+#: maa_django/apps/magazine/models.py:8
 msgid "Created at"
 msgstr ""
 
-#: myproject/apps/magazine/models.py:10
+#: maa_django/apps/magazine/models.py:10
 msgid "Title"
 msgstr ""
 
-#: myproject/apps/magazine/models.py:11
+#: maa_django/apps/magazine/models.py:11
 msgid "Body"
 msgstr ""
 
-#: myproject/apps/magazine/models.py:12
+#: maa_django/apps/magazine/models.py:12
 msgid "Theme"
 msgstr ""
 
-#: myproject/apps/magazine/models.py:15
+#: maa_django/apps/magazine/models.py:15
 msgid "News Article"
 msgstr ""
 
-#: myproject/apps/magazine/models.py:16
+#: maa_django/apps/magazine/models.py:16
 msgid "News Articles"
 msgstr ""
 
 #. Translators: Déconnexion de la page d'accueil
-#: myproject/apps/webvfr/templates/webvfr/index.html:14
+#: maa_django/apps/webvfr/templates/webvfr/index.html:14
 msgid "Déconnexion"
 msgstr ""
 
-#: myproject/apps/webvfr/templates/webvfr/index.html:16
+#: maa_django/apps/webvfr/templates/webvfr/index.html:16
 msgid "Modifier son profil"
 msgstr ""
 
-#: myproject/apps/webvfr/views.py:27 myproject/apps/webvfr/views.py:52
+#: maa_django/apps/webvfr/views.py:27 maa_django/apps/webvfr/views.py:52
 msgid "Your profile was successfully updated!"
 msgstr ""
 
-#: myproject/apps/webvfr/views.py:30
+#: maa_django/apps/webvfr/views.py:30
 msgid "Please correct the error below."
 msgstr ""
 
-#: myproject/settings/_base.py:144
+#: maa_django/settings/_base.py:144
 msgid "English"
 msgstr ""
 
-#: myproject/settings/_base.py:145
+#: maa_django/settings/_base.py:145
 msgid "French"
 msgstr ""
 
-#: myproject/settings/_base.py:179
+#: maa_django/settings/_base.py:179
 msgid "Positivity"
 msgstr ""
 
-#: myproject/settings/_base.py:180
+#: maa_django/settings/_base.py:180
 msgid "Solutions"
 msgstr ""
 
-#: myproject/settings/_base.py:181
+#: maa_django/settings/_base.py:181
 msgid "Science"
 msgstr ""

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from django.db import models
 from django.db.models.query import QuerySet
 
-from myproject.models.mes_mixins import Activable
+from maa_django.models.mes_mixins import Activable
 from configurateur.models import ConfigMAA
 
 

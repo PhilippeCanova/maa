@@ -21,7 +21,7 @@ digraph model_graph {
   // Labels
 
 
-  myproject_models_mes_mixins_Activable [label=<
+  maa_django_models_mes_mixins_Activable [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -39,7 +39,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_Region [label=<
+  maa_django_apps_core_models_Region [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -65,7 +65,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_Log [label=<
+  maa_django_apps_core_models_Log [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -123,7 +123,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_Station [label=<
+  maa_django_apps_core_models_Station [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -301,7 +301,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_ConfigMAA [label=<
+  maa_django_apps_core_models_ConfigMAA [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -383,7 +383,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_EnvoiMAA [label=<
+  maa_django_apps_core_models_EnvoiMAA [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -521,7 +521,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_Client [label=<
+  maa_django_apps_core_models_Client [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -571,7 +571,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_MediumMail [label=<
+  maa_django_apps_core_models_MediumMail [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -605,7 +605,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_MediumSMS [label=<
+  maa_django_apps_core_models_MediumSMS [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -639,7 +639,7 @@ digraph model_graph {
     </TABLE>
     >]
 
-  myproject_apps_core_models_MediumFTP [label=<
+  maa_django_apps_core_models_MediumFTP [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
@@ -702,31 +702,31 @@ digraph model_graph {
 
   // Relations
 
-  myproject_apps_core_models_Station -> myproject_apps_core_models_Region
+  maa_django_apps_core_models_Station -> maa_django_apps_core_models_Region
   [label=" region (station)"] [arrowhead=none, arrowtail=dot, dir=both];
 
-  myproject_apps_core_models_Station -> myproject_models_mes_mixins_Activable
+  maa_django_apps_core_models_Station -> maa_django_models_mes_mixins_Activable
   [label=" abstract\ninheritance"] [arrowhead=empty, arrowtail=none, dir=both];
 
-  myproject_apps_core_models_ConfigMAA -> myproject_apps_core_models_Station
+  maa_django_apps_core_models_ConfigMAA -> maa_django_apps_core_models_Station
   [label=" station (configmaa)"] [arrowhead=none, arrowtail=dot, dir=both];
 
-  myproject_apps_core_models_ConfigMAA -> myproject_models_mes_mixins_Activable
+  maa_django_apps_core_models_ConfigMAA -> maa_django_models_mes_mixins_Activable
   [label=" abstract\ninheritance"] [arrowhead=empty, arrowtail=none, dir=both];
 
-  myproject_apps_core_models_EnvoiMAA -> myproject_apps_core_models_ConfigMAA
+  maa_django_apps_core_models_EnvoiMAA -> maa_django_apps_core_models_ConfigMAA
   [label=" configmaa (envoimaa)"] [arrowhead=none, arrowtail=dot, dir=both];
 
-  myproject_apps_core_models_Client -> myproject_apps_core_models_ConfigMAA
+  maa_django_apps_core_models_Client -> maa_django_apps_core_models_ConfigMAA
   [label=" configmaas (client)"] [arrowhead=dot arrowtail=dot, dir=both];
 
-  myproject_apps_core_models_MediumMail -> myproject_apps_core_models_Client
+  maa_django_apps_core_models_MediumMail -> maa_django_apps_core_models_Client
   [label=" client (mediummail)"] [arrowhead=none, arrowtail=dot, dir=both];
 
-  myproject_apps_core_models_MediumSMS -> myproject_apps_core_models_Client
+  maa_django_apps_core_models_MediumSMS -> maa_django_apps_core_models_Client
   [label=" client (mediumsms)"] [arrowhead=none, arrowtail=dot, dir=both];
 
-  myproject_apps_core_models_MediumFTP -> myproject_apps_core_models_Client
+  maa_django_apps_core_models_MediumFTP -> maa_django_apps_core_models_Client
   [label=" client (mediumftp)"] [arrowhead=none, arrowtail=dot, dir=both];
 
 

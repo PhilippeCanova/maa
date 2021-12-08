@@ -1,0 +1,1 @@
+default_app_config = "maa_django.apps.magazine.apps.MagazineAppConfig"

@@ -23,7 +23,7 @@ class AnalyseData_TestCase(TestCase):
             mais lancé une seule fois """
 
         # Insertion en base des données initiales. Permet d'avoir une liste des stations aéro
-        from myproject.apps.core.management.commands.initiate import Initiate
+        from maa_django.apps.core.management.commands.initiate import Initiate
         super().setUpClass()
         init = Initiate()
         init.delete()

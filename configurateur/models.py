@@ -2,7 +2,7 @@ from datetime import datetime
 
 from django.db import models
 
-from myproject.models.mes_mixins import Activable
+from maa_django.models.mes_mixins import Activable
 
 # Create your models here.
 class AutorisedMAA(object):
@@ -307,7 +307,7 @@ class Client(Activable):
     telephone = models.CharField(max_length= 15, null=False)
     email = models.EmailField(max_length= 250, null=True, blank=True)
     regions = models.ManyToManyField(Region, blank=True, related_name='regions')
-    stations = models.ManyToManyField(Station, blank=True, related_name='stations')
+    stations = models.ManyToManyField(Station, blank=True, related_name='station')
     configmaas = models.ManyToManyField(ConfigMAA, blank=True)
     # TODO: Ajouter une fin d'abonnement pour pouvoir désactiver la production avant de pouvoir supprimer de la base
 

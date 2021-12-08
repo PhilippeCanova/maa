@@ -1,7 +1,7 @@
 oaci;nom;entete;date_pivot;region__tag;inseepp;outremer;active;ouverture;fermeture;retention;reconduction;repousse;wint_unit;fuseau;ouverture_hiver;fermeture_hiver;ouverture_ete;fermeture_ete
 AAAA;Alpha;WLFR86 AAAA;2021-03-30 01:00:00;CRA Nice;1111111;False;True;00:00;23:59;1;3;3;kt;Europe/Paris;00:00;23:59;00:00;23:59
 BBBB;Bravo;WLFR86 BBBB;2021-03-30 01:00:00;CRA Nice;2222222;False;True;04:00;21:00;1;3;3;kmh;Europe/Paris;04:00;21:00;03:00;20:00
-CCCC;Charly;WLFR86 CCCC;2021-03-30 01:00:00;CRA Roissy;3333333;True;True;00:00;23:59;1;3;3;wint_unit;America/Guyana;04:00;21:00;03:00;20:00
+CCCC;Charly;WLFR86 CCCC;2021-03-30 01:00:00;CRA Roissy;3333333;True;True;00:00;23:59;1;3;3;kmh;America/Guyana;04:00;21:00;03:00;20:00
 DDDD;Delta;WLFR86 DDDD;2021-03-30 01:00:00;CRA Nice;4444444;False;True;04:00;21:00;1;3;3;kmh;Europe/Paris;04:00;21:00;03:00;20:00
 EEEE;Echo;WLFR86 LFBE;2021-03-30 01:00:00;CRA Nice;5555555;False;True;04:00;21:00;1;3;3;kmh;Europe/Paris;04:00;21:00;03:00;20:00
 FFFF;Foxtrot;WLFR86 LFBI;2021-03-30 01:00:00;CRA Nice;6666666;False;True;04:00;21:00;1;3;3;kmh;Europe/Paris;04:00;21:00;03:00;20:00

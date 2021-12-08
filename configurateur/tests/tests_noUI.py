@@ -13,7 +13,7 @@ class ConfigurateurTestCase(TestCase):
     def setUpClass(cls):
         """ Utlisé pour une utilisation commune à toutes les fonctions test de cette classe 
             mais lancé une seule fois """
-        from myproject.apps.core.management.commands.initiate import Initiate
+        from maa_django.apps.core.management.commands.initiate import Initiate
         super().setUpClass()
         init = Initiate()
         init.create()
